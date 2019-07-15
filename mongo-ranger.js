@@ -7,7 +7,8 @@ const components = require("./components");
 let focused = 0;
 
 function main(host, port) {
-  const client = new MongoClient("mongodb://localhost:27017", {
+  const uri = port ? `${host}:${port}` : host;
+  const client = new MongoClient(uri, {
     useNewUrlParser: true
   });
 
