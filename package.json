@@ -10,6 +10,8 @@
   "license": "MIT",
   "dependencies": {
     "blessed": "^0.1.81",
+    "command-line-args": "^5.1.1",
+    "command-line-usage": "^6.0.2",
     "mongodb": "^3.2.7"
   }
 }

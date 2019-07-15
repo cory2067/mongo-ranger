@@ -1,97 +1,60 @@
-const blessed = require("blessed");
-const assert = require("assert");
-const MongoClient = require("mongodb").MongoClient;
+const commandLineArgs = require("command-line-args");
+const commandLineUsage = require('command-line-usage');
+const mongoRanger = require("./mongo-ranger")
 
-const client = new MongoClient("mongodb://localhost:27017");
-
-// Create a screen object.
-const screen = blessed.screen({
-  title: "mongo-ranger",
-  smartCSR: true,
-  dockBorders: true,
-});
-
-const style = {
-  item: {
-    hover: {
-      bg: "blue"
-    }
+const optionDefinitions = [
+  {
+    name: "host",
+    type: String,
+    defaultOption: true
   },
-  selected: {
-    bg: "blue",
-    bold: true
+  {
+    name: "port",
+    alias: "p",
+    type: Number,
+  },
+  {
+    name: "help",
+    alias: "h",
+    type: Boolean
   }
-};
+];
 
-const dbList = blessed.list({
-  width: "17%",
-  height: "100%",
-  label: "Databases",
-  tags: true,
-  keys: true,
-  vi: true,
-  border: {
-    type: "line"
+const usage = [
+  {
+    header: "mongo-ranger",
+    content: "A MongoDB data browser for the console."
   },
-  style
-});
-
-const colList = blessed.list({
-  left: "16%",
-  width: "34%",
-  height: "100%",
-  label: "Collections",
-  tags: true,
-  keys: true,
-  vi: true,
-  border: {
-    type: "line"
+  {
+    header: "Synopsis",
+    content: [
+      "$ mongor [{underline connection-string}]",
+      "$ mongor [{bold --host} {underline host}] [{bold --port} {underline port}]",
+      "$ mongor {bold --help}",
+    ]
   },
-  style
-});
+  {
+    header: "Options",
+    optionList: optionDefinitions
+  }
+]
 
-const itemList = blessed.list({
-  left: "49%",
-  width: "51%",
-  height: "100%",
-  label: "Documents",
-  tags: true,
-  keys: true,
-  vi: true,
-  border: {
-    type: "line"
-  },
-  style
-})
 
-client.connect(async err => {
-  assert.equal(null, err);
-  const admin = client.db().admin();
-  const dbs = await admin.listDatabases();
-  dbList.setItems(dbs.databases.map(db => db.name));
+let options;
+try {
+  options = commandLineArgs(optionDefinitions);
+} catch (e) {
+  // invalid options provided
+  console.log(commandLineUsage(usage));
+  return;
+}
 
-  const cols = await client.db('backupjobs').listCollections().toArray();
-  colList.setItems(cols.map(col => col.name))
+if (options.help) {
+  console.log(commandLineUsage(usage));
+  return;
+}
 
-  const docs = await client.db('backupjobs').collection('jobs').find().toArray();
-  itemList.setItems(docs.map(doc => doc._id + ""));
-  screen.render();
-});
+const host = options.host || "mongodb://localhost:21017";
+const port = options.port || "";
 
-screen.append(dbList);
-screen.append(colList);
-screen.append(itemList);
-
-dbList.key(["l", "right", "enter"], function(ch, key) {
-  colList.focus();
-  screen.render();
-});
-
-// Quit q or Control-C.
-screen.key(["q", "C-c"], function(ch, key) {
-  return process.exit(0);
-});
-
-dbList.focus();
-
-screen.render();
+mongoRanger(host, port);
