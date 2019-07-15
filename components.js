@@ -7,7 +7,7 @@ const assert = require("assert");
  * @param options.width
  * @param options.left
  * @param options.level where 0 is Database, 1 is Collection, 2 is top level of Document, etc
- * @returns a blessed.list object, with an added .setLevel() function
+ * @returns a blessed.list object, with added functions: setLevel()
  */
 function column(options) {
   const style = {
@@ -20,18 +20,13 @@ function column(options) {
     selected: {
       bg: "blue",
       bold: true
-    },
-    focus: {
-      border: {
-        bold: true
-      }
     }
   };
 
   const col = blessed.list({
     left: options.left || "0",
     width: options.width,
-    height: "100%",
+    height: "100%-2",
     tags: true,
     keys: true,
     vi: true,
@@ -43,27 +38,46 @@ function column(options) {
 
   col.setLevel = level => {
     assert(level >= 0);
-
-    switch (level) {
-      case 0:
-        col.setLabel("Databases");
-        break;
-      case 1:
-        col.setLabel("Collections");
-        break;
-      case 2:
-        col.setLabel("Documents");
-        break;
-      default:
-        col.setLabel(`Document (Level ${level - 1})`);
-    }
+    col.level = level;
+    col.setLabel(getLabel(level));
   };
 
   if (options.level != undefined) {
     col.setLevel(options.level);
   }
 
+  col.on("focus", () => {
+    if (col.level == undefined) {
+      return;
+    }
+
+    // there doesn't seem to be a good way to do this from `style`
+    col.setLabel(`{red-fg}{bold}${getLabel(col.level)}{/bold}{/red-fg}`);
+  });
+
+  col.on("blur", () => {
+    if (col.level == undefined) {
+      return;
+    }
+
+    // strips formatting
+    col.setLabel(getLabel(col.level));
+  });
+
   return col;
+}
+
+function getLabel(level) {
+  switch (level) {
+    case 0:
+      return "Databases";
+    case 1:
+      return "Collections";
+    case 2:
+      return "Documents";
+  }
+
+  return `Document (Level ${level - 1})`;
 }
 
 module.exports = {

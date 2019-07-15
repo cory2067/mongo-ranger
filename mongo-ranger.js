@@ -4,35 +4,20 @@ const MongoClient = require("mongodb").MongoClient;
 
 const components = require("./components");
 
+let focused = 0;
+
 function main(host, port) {
   const client = new MongoClient("mongodb://localhost:27017", {
     useNewUrlParser: true
   });
 
-  // Create a screen object.
   const screen = blessed.screen({
     title: "mongo-ranger",
     smartCSR: true,
-    dockBorders: true,
-    ignoreDockContrast: true
+    dockBorders: true
   });
 
-  const dbList = components.column({
-    width: "17%"
-  });
-
-  const colList = components.column({
-    left: "16%",
-    width: "34%",
-    level: 1
-  });
-
-  const itemList = components.column({
-    left: "49%",
-    width: "51%",
-    level: 2
-  });
-
+  // this should be customizable
   const cols = [
     components.column({
       width: "17%",
@@ -52,33 +37,61 @@ function main(host, port) {
     })
   ];
 
+  const numCols = cols.length;
+
   client.connect(async err => {
     assert.equal(null, err);
     const admin = client.db("test").admin();
     const dbs = await admin.listDatabases();
-    dbList.setItems(dbs.databases.map(db => db.name));
+    cols[0].setItems(dbs.databases.map(db => db.name));
 
-    const cols = await client
+    const collections = await client
       .db("backupjobs")
       .listCollections()
       .toArray();
-    colList.setItems(cols.map(col => col.name));
+    cols[1].setItems(collections.map(coll => coll.name));
 
     const docs = await client
       .db("backupjobs")
       .collection("jobs")
       .find()
       .toArray();
-    itemList.setItems(docs.map(doc => doc._id + ""));
+    cols[2].setItems(docs.map(doc => doc._id + ""));
     screen.render();
   });
 
-  screen.append(dbList);
-  screen.append(colList);
-  screen.append(itemList);
+  for (const col of cols) {
+    screen.append(col);
+  }
 
-  dbList.key(["l", "right", "enter"], function(ch, key) {
-    colList.focus();
+  const line = blessed.line({
+    orientation: "horizontal",
+    top: "100%-2",
+    width: "100%",
+    style: {
+      fg: "blue"
+    }
+  });
+
+  screen.append(line);
+
+  screen.key(["l", "right", "enter"], function(ch, key) {
+    if (focused >= numCols - 1) {
+      return;
+    }
+
+    focused++;
+    cols[focused].focus();
+    screen.render();
+  });
+
+  screen.key(["h", "left"], function(ch, key) {
+    if (focused <= 0) {
+      return;
+    }
+
+    focused--;
+    cols[focused].focus();
     screen.render();
   });
 
@@ -87,7 +100,7 @@ function main(host, port) {
     return process.exit(0);
   });
 
-  dbList.focus();
+  cols[focused].focus();
 
   screen.render();
 }
