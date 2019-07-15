@@ -10,7 +10,6 @@
   "license": "MIT",
   "dependencies": {
     "blessed": "^0.1.81",
-    "blessed-contrib": "^4.8.16",
     "mongodb": "^3.2.7"
   }
 }
