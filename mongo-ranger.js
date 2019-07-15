@@ -2,72 +2,59 @@ const blessed = require("blessed");
 const assert = require("assert");
 const MongoClient = require("mongodb").MongoClient;
 
+const components = require("./components");
+
 function main(host, port) {
-  const client = new MongoClient("mongodb://localhost:27017");
+  const client = new MongoClient("mongodb://localhost:27017", {
+    useNewUrlParser: true
+  });
 
   // Create a screen object.
   const screen = blessed.screen({
     title: "mongo-ranger",
     smartCSR: true,
-    dockBorders: true
+    dockBorders: true,
+    ignoreDockContrast: true
   });
 
-  const style = {
-    item: {
-      hover: {
-        bg: "blue"
-      }
-    },
-    selected: {
-      bg: "blue",
-      bold: true
-    }
-  };
-
-  const dbList = blessed.list({
-    width: "17%",
-    height: "100%",
-    label: "Databases",
-    tags: true,
-    keys: true,
-    vi: true,
-    border: {
-      type: "line"
-    },
-    style
+  const dbList = components.column({
+    width: "17%"
   });
 
-  const colList = blessed.list({
+  const colList = components.column({
     left: "16%",
     width: "34%",
-    height: "100%",
-    label: "Collections",
-    tags: true,
-    keys: true,
-    vi: true,
-    border: {
-      type: "line"
-    },
-    style
+    level: 1
   });
 
-  const itemList = blessed.list({
+  const itemList = components.column({
     left: "49%",
     width: "51%",
-    height: "100%",
-    label: "Documents",
-    tags: true,
-    keys: true,
-    vi: true,
-    border: {
-      type: "line"
-    },
-    style
+    level: 2
   });
+
+  const cols = [
+    components.column({
+      width: "17%",
+      level: 0
+    }),
+
+    components.column({
+      left: "16%",
+      width: "34%",
+      level: 1
+    }),
+
+    components.column({
+      left: "49%",
+      width: "51%",
+      level: 2
+    })
+  ];
 
   client.connect(async err => {
     assert.equal(null, err);
-    const admin = client.db().admin();
+    const admin = client.db("test").admin();
     const dbs = await admin.listDatabases();
     dbList.setItems(dbs.databases.map(db => db.name));
 

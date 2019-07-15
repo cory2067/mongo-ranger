@@ -1,6 +1,6 @@
 const commandLineArgs = require("command-line-args");
-const commandLineUsage = require('command-line-usage');
-const mongoRanger = require("./mongo-ranger")
+const commandLineUsage = require("command-line-usage");
+const mongoRanger = require("./mongo-ranger");
 
 const optionDefinitions = [
   {
@@ -11,7 +11,7 @@ const optionDefinitions = [
   {
     name: "port",
     alias: "p",
-    type: Number,
+    type: Number
   },
   {
     name: "help",
@@ -30,15 +30,14 @@ const usage = [
     content: [
       "$ mongor [{underline connection-string}]",
       "$ mongor [{bold --host} {underline host}] [{bold --port} {underline port}]",
-      "$ mongor {bold --help}",
+      "$ mongor {bold --help}"
     ]
   },
   {
     header: "Options",
     optionList: optionDefinitions
   }
-]
-
+];
 
 let options;
 try {
