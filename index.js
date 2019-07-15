@@ -1,60 +1,58 @@
-const blessed = require('blessed');
+const blessed = require("blessed");
+const assert = require("assert");
+const MongoClient = require("mongodb").MongoClient;
+
+const client = new MongoClient("mongodb://localhost:27017");
 
 // Create a screen object.
 const screen = blessed.screen({
   smartCSR: true
 });
 
-screen.title = 'my window title';
-
-// Create a box perfectly centered horizontally and vertically.
-const box = blessed.box({
-  top: 'center',
-  left: 'center',
-  width: '50%',
-  height: '50%',
-  content: 'Hello {bold}world{/bold}!',
+const dbList = blessed.list({
+  top: "center",
+  left: "center",
+  width: "50%",
+  height: "50%",
+  label: "Hello {bold}world{/bold}!",
   tags: true,
+  keys: true,
+  vi: true,
   border: {
-    type: 'line'
+    type: "line"
   },
   style: {
-    fg: 'white',
-    bg: 'black',
-    border: {
-      fg: '#f0f0f0'
+    item: {
+      hover: {
+        bg: "blue"
+      }
     },
-    hover: {
-      bg: 'green'
+    selected: {
+      bg: "blue",
+      bold: true
     }
   }
 });
 
-// Append our box to the screen.
-screen.append(box);
-
-// If our box is clicked, change the content.
-box.on('click', function(data) {
-  box.setContent('{center}Some different {red-fg}content{/red-fg}.{/center}');
+client.connect(async err => {
+  assert.equal(null, err);
+  const admin = client.db().admin();
+  const dbs = await admin.listDatabases();
+  dbList.setItems(dbs.databases.map(db => db.name));
   screen.render();
 });
 
-// If box is focused, handle `enter`/`return` and give us some more content.
-box.key('enter', function(ch, key) {
-  box.setContent('{right}Even different {black-fg}content{/black-fg}.{/right}\n');
-  box.setLine(1, 'bar');
-  box.insertLine(1, 'foo');
+screen.append(dbList);
+
+dbList.key(["l", "left", "enter"], function(ch, key) {
   screen.render();
 });
 
-// Quit on Escape, q, or Control-C.
-screen.key(['escape', 'q', 'C-c'], function(ch, key) {
+// Quit q or Control-C.
+screen.key(["q", "C-c"], function(ch, key) {
   return process.exit(0);
 });
 
-// Focus our element.
-box.focus();
+dbList.focus();
 
-// Render the screen.
 screen.render();
-
