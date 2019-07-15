@@ -1,0 +1,16 @@
+{
+  "name": "mongo-ranger",
+  "version": "1.0.0",
+  "description": "A MongoDB data browser for the console",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Cory Lynch",
+  "license": "MIT",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.8.16",
+    "mongodb": "^3.2.7"
+  }
+}
