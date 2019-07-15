@@ -56,4 +56,7 @@ if (options.help) {
 const host = options.host || "mongodb://localhost:27017";
 const port = options.port || "";
 
-mongoRanger(host, port);
+mongoRanger(host, port).catch(e => {
+  console.error(e);
+  return process.exit(1);
+});
