@@ -61,7 +61,7 @@ if (options.help) {
   return;
 }
 
-options.host = options.host || "mongodb://localhost:27017";
+options.host = options.host || "mongodb://localhost";
 options.port = options.port || "";
 
 mongoRanger(options).catch(e => {

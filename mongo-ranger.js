@@ -77,7 +77,7 @@ async function main(options) {
       }
     });
 
-    col.key(["h", "escape", "left"], () => {
+    col.key(["h", "left"], () => {
       if (focused === 1 && cols[0].level > 0) {
         shiftLeft(cols);
       } else if (focused > 0) {
@@ -149,7 +149,7 @@ async function applySelection(cols, index) {
     const nextCol = cols[index + 1];
     const docs = await db
       .collection(selected)
-      .find()
+      .find({ _id: { $exists: true } })
       .limit(64)
       .toArray();
 
