@@ -110,8 +110,8 @@ async function main(host, port) {
 }
 
 /**
- * Apply the items selected at cols[index] and propogate these
- * changes to columns to the right
+ * Apply the selected item at cols[index], and make the appropriate
+ * database calls to populate the column(s) to the right
  *
  * @param {Array} cols
  * @param {Number} index
@@ -126,16 +126,16 @@ async function applySelection(cols, index) {
   }
 
   const selected = selectedItem.content;
-  if (col.level === 0) {
-    // DATABASE LEVEL
+  if (col.level === util.levels.DATABASE) {
+    // A selection on the DATABASE level loads the COLLECTION level
     assert(index === 0);
 
     const nextCol = cols[index + 1];
     db = client.db(selected);
     const collections = await db.listCollections().toArray();
     nextCol.setItems(collections.map(coll => coll.name));
-  } else if (col.level === 1) {
-    // COLLECTION LEVEL
+  } else if (col.level === util.levels.COLLECTION) {
+    // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
     const nextCol = cols[index + 1];
@@ -146,7 +146,7 @@ async function applySelection(cols, index) {
       .toArray();
 
     nextCol.setItems(docs.map(doc => JSON.stringify(doc)));
-  } else {
+  } else if (col.level == util.levels.DOCUMENT_BASE) {
     // DOCUMENT LEVEL
   }
 
@@ -171,8 +171,7 @@ function shiftRight(cols) {
   cols[numCols - 1].setItems([]);
   cols[numCols - 1].moveLevel(1);
 
-  cols[focused].focus();
-
+  cols[focused].focus(); // trigger reload data
   screen.render();
 }
 
@@ -185,11 +184,7 @@ function shiftLeft(cols) {
 
   util.loadColumn(cols[0], cols[0].level - 1);
 
-  // need to populate this
-  cols[numCols - 1].setItems([]);
-
-  cols[focused].focus();
-
+  cols[focused].focus(); // trigger reload data
   screen.render();
 }
 
