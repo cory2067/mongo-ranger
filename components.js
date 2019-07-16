@@ -1,5 +1,6 @@
 const blessed = require("blessed");
 const assert = require("assert");
+const util = require("./util");
 
 /**
  * Create a new column element for mongor
@@ -26,7 +27,7 @@ function column(options) {
   const col = blessed.list({
     left: options.left || "0",
     width: options.width,
-    height: "100%-2",
+    height: "100%",
     tags: true,
     keys: true,
     vi: true,
@@ -37,7 +38,7 @@ function column(options) {
   });
 
   col.setLevel = level => {
-    assert(level >= 0);
+    assert(level >= util.levels.DATABASE);
     col.level = level;
     col.setLabel(getLabel(level));
   };
@@ -83,15 +84,15 @@ function column(options) {
 
 function getLabel(level) {
   switch (level) {
-    case 0:
+    case util.levels.DATABASE:
       return "Databases";
-    case 1:
+    case util.levels.COLLECTION:
       return "Collections";
-    case 2:
+    case util.levels.DOCUMENT_BASE:
       return "Documents";
   }
 
-  return `Document (Level ${level - 2})`;
+  return `Document (Level ${level - util.levels.DOCUMENT_BASE})`;
 }
 
 module.exports = {

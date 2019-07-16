@@ -8,8 +8,8 @@ const util = require("./util");
 let focused = 0;
 let client, db, screen, logger;
 
-async function main(host, port) {
-  const uri = port ? `${host}:${port}` : host;
+async function main(options) {
+  const uri = options.port ? `${options.host}:${options.port}` : options.host;
   console.log(`Connecting to ${uri}`);
 
   client = new MongoClient(uri, {
@@ -52,6 +52,7 @@ async function main(host, port) {
   // list of databases is only fetched once
   cols[0].setItems(dbs.databases.map(db => db.name));
 
+  // initialize listeners for each column
   cols.forEach((col, index) => {
     screen.append(col);
 
@@ -68,9 +69,9 @@ async function main(host, port) {
 
     // when we change levels, shift the columns accordingly
     col.key(["l", "right", "enter"], () => {
-      if (focused === numCols - 2) {
+      if (focused === numCols - 2 && util.browser.canAdvance()) {
         shiftRight(cols);
-      } else {
+      } else if (focused < numCols - 1) {
         // can change focused column without needing to shift
         cols[++focused].focus();
       }
@@ -86,21 +87,28 @@ async function main(host, port) {
     });
   });
 
-  logger = blessed.log({
-    top: "100%-16",
-    height: "0%+16",
-    width: "100%",
-    style: {
+  if (options.debug) {
+    logger = blessed.log({
+      left: "80%",
+      height: "100%",
+      label: "Debug Log",
+      width: "20%",
       border: {
         type: "line"
       }
-    }
-  });
+    });
 
-  screen.append(logger);
+    screen.append(logger);
+  } else {
+    logger = {
+      // no-op all prints
+      log: () => {}
+    };
+  }
 
   // Quit q or Control-C.
   screen.key(["q", "C-c"], function(ch, key) {
+    client.close();
     return process.exit(0);
   });
 
@@ -122,7 +130,7 @@ async function applySelection(cols, index) {
 
   const selectedItem = col.getItem(col.selected);
   if (!selectedItem) {
-    return; // list was empty
+    return screen.render(); // list was empty
   }
 
   const selected = selectedItem.content;
@@ -142,17 +150,43 @@ async function applySelection(cols, index) {
     const docs = await db
       .collection(selected)
       .find()
-      .limit(20)
+      .limit(64)
       .toArray();
 
-    nextCol.setItems(docs.map(doc => JSON.stringify(doc)));
-  } else if (col.level == util.levels.DOCUMENT_BASE) {
-    // DOCUMENT LEVEL
+    util.browser.load(docs);
+    nextCol.setItems(docs.map(doc => doc._id.toString()));
+  } else if (col.level >= util.levels.DOCUMENT_BASE) {
+    const nextCol = cols[index + 1];
+    if (!nextCol) return screen.render();
+    let content;
+
+    // advance to the next level differently, depending on what type we're dealing with
+    const parent = util.browser.get(col.level - 1);
+    if (Array.isArray(parent)) {
+      // use index rather than the value
+      content = util.browser.traverse(col.level, col.selected);
+    } else if (util.isObject(parent)) {
+      content = util.browser.traverse(col.level, selected.split(":")[0]);
+    } else {
+      content = parent;
+    }
+
+    if (Array.isArray(content)) {
+      nextCol.setItems(content.map(el => el + ""));
+    } else if (util.isObject(content)) {
+      nextCol.setItems(Object.keys(content).map(k => `${k}: ${content[k]}`));
+    } else {
+      nextCol.setItems([content + ""]);
+    }
   }
 
   for (let i = index + 2; i < numCols; i++) {
     // propogate change to the right, and clear out old columns
     cols[i].setItems([]);
+  }
+
+  if (util.browser.cursor.length) {
+    logger.log(`Cursor: [${util.browser.cursor}]`);
   }
 
   screen.render();

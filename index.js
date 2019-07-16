@@ -6,17 +6,25 @@ const optionDefinitions = [
   {
     name: "host",
     type: String,
-    defaultOption: true
+    defaultOption: true,
+    description: "server to connect to, SRV string can be used"
   },
   {
     name: "port",
     alias: "p",
-    type: Number
+    type: Number,
+    description: "port to conect to"
   },
   {
     name: "help",
     alias: "h",
-    type: Boolean
+    type: Boolean,
+    description: "show this help page"
+  },
+  {
+    name: "debug",
+    type: Boolean,
+    description: "show debug logs"
   }
 ];
 
@@ -53,10 +61,10 @@ if (options.help) {
   return;
 }
 
-const host = options.host || "mongodb://localhost:27017";
-const port = options.port || "";
+options.host = options.host || "mongodb://localhost:27017";
+options.port = options.port || "";
 
-mongoRanger(host, port).catch(e => {
+mongoRanger(options).catch(e => {
   console.error(e);
   return process.exit(1);
 });
