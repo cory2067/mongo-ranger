@@ -3,16 +3,17 @@ const assert = require("assert");
 const MongoClient = require("mongodb").MongoClient;
 
 const components = require("./components");
+const util = require("./util");
 
 const colCache = {};
 let focused = 0;
-let db, screen;
+let client, db, screen;
 
 async function main(host, port) {
   console.log("Connecting to MongoDB...");
 
   const uri = port ? `${host}:${port}` : host;
-  const client = new MongoClient(uri, {
+  client = new MongoClient(uri, {
     useNewUrlParser: true
   });
 
@@ -55,43 +56,15 @@ async function main(host, port) {
     screen.append(col);
 
     // move up/down or select item
-    col.key(["j", "k", "up", "down", "enter"], async () => {
-      const selectedItem = col.getItem(col.selected);
-      if (!selectedItem) {
-        return; // list was empty
-      }
+    col.key(
+      ["j", "k", "up", "down", "enter"],
+      util.crashOnError(screen, () => applySelection(cols, index))
+    );
 
-      const selected = selectedItem.content;
-      if (col.level === 0) {
-        // DATABASE LEVEL
-        assert(index === 0);
-
-        const nextCol = cols[index + 1];
-        db = client.db(selected);
-        const collections = await db.listCollections().toArray();
-        nextCol.setItems(collections.map(coll => coll.name));
-      } else if (col.level === 1) {
-        // COLLECTION LEVEL
-        assert(index <= 1);
-
-        const nextCol = cols[index + 1];
-        const docs = await db
-          .collection(selected)
-          .find()
-          .limit(20)
-          .toArray();
-
-        nextCol.setItems(docs.map(doc => JSON.stringify(doc)));
-      } else {
-        // DOCUMENT LEVEL
-      }
-
-      for (let i = index + 2; i < numCols; i++) {
-        // propogate change to the right, and clear out old columns
-        cols[i].setItems([]);
-        delete colCache[i];
-      }
-    });
+    col.on(
+      "focus",
+      util.crashOnError(screen, () => applySelection(cols, index))
+    );
 
     screen.render();
 
@@ -150,6 +123,56 @@ async function main(host, port) {
   screen.render();
 }
 
+/**
+ * Apply the items selected at cols[index] and propogate these
+ * changes to columns to the right
+ *
+ * @param {Array} cols
+ * @param {Number} index
+ */
+async function applySelection(cols, index) {
+  const col = cols[index];
+  const numCols = cols.length;
+
+  const selectedItem = col.getItem(col.selected);
+  if (!selectedItem) {
+    return; // list was empty
+  }
+
+  const selected = selectedItem.content;
+  if (col.level === 0) {
+    // DATABASE LEVEL
+    assert(index === 0);
+
+    const nextCol = cols[index + 1];
+    db = client.db(selected);
+    const collections = await db.listCollections().toArray();
+    nextCol.setItems(collections.map(coll => coll.name));
+  } else if (col.level === 1) {
+    // COLLECTION LEVEL
+    assert(index <= 1);
+
+    const nextCol = cols[index + 1];
+    const docs = await db
+      .collection(selected)
+      .find()
+      .limit(20)
+      .toArray();
+
+    nextCol.setItems(docs.map(doc => JSON.stringify(doc)));
+  } else {
+    // DOCUMENT LEVEL
+  }
+
+  for (let i = index + 2; i < numCols; i++) {
+    // propogate change to the right, and clear out old columns
+    cols[i].setItems([]);
+    delete colCache[i];
+  }
+
+  screen.render();
+}
+
 // shift columns when user moves to the right
 function shiftRight(cols) {
   const numCols = cols.length;
@@ -163,8 +186,7 @@ function shiftRight(cols) {
   cols[numCols - 1].setItems([]);
   cols[numCols - 1].moveLevel(1);
 
-  focused--;
-  cols[focused].focus();
+  cols[--focused].focus();
 
   screen.render();
 }
@@ -188,8 +210,7 @@ function shiftLeft(cols) {
   // need to populate this
   cols[numCols - 1].setItems([]);
 
-  focused++;
-  cols[focused].focus();
+  cols[++focused].focus();
 
   screen.render();
 }
