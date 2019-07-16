@@ -4,8 +4,9 @@ const MongoClient = require("mongodb").MongoClient;
 
 const components = require("./components");
 
+const colCache = {};
 let focused = 0;
-let db;
+let db, screen;
 
 async function main(host, port) {
   console.log("Connecting to MongoDB...");
@@ -19,7 +20,7 @@ async function main(host, port) {
   const admin = client.db("test").admin();
   const dbs = await admin.listDatabases();
 
-  const screen = blessed.screen({
+  screen = blessed.screen({
     title: "mongo-ranger",
     smartCSR: true,
     dockBorders: true
@@ -47,37 +48,22 @@ async function main(host, port) {
 
   const numCols = cols.length;
 
+  // list of databases is only fetched once
   cols[0].setItems(dbs.databases.map(db => db.name));
-
-  /*client.connect(async err => {
-    assert.equal(null, err);
-    const admin = client.db("test").admin();
-    const dbs = await admin.listDatabases();
-    cols[0].setItems(dbs.databases.map(db => db.name));
-
-    const collections = await client
-      .db("backupjobs")
-      .listCollections()
-      .toArray();
-    cols[1].setItems(collections.map(coll => coll.name));
-
-    const docs = await client
-      .db("backupjobs")
-      .collection("jobs")
-      .find()
-      .toArray();
-    cols[2].setItems(docs.map(doc => doc._id + ""));
-    
-    screen.render();
-  });*/
 
   cols.forEach((col, index) => {
     screen.append(col);
 
     // move up/down or select item
     col.key(["j", "k", "up", "down", "enter"], async () => {
-      const selected = col.getItem(col.selected).content;
+      const selectedItem = col.getItem(col.selected);
+      if (!selectedItem) {
+        return; // list was empty
+      }
+
+      const selected = selectedItem.content;
       if (col.level === 0) {
+        // DATABASE LEVEL
         assert(index === 0);
 
         const nextCol = cols[index + 1];
@@ -85,6 +71,7 @@ async function main(host, port) {
         const collections = await db.listCollections().toArray();
         nextCol.setItems(collections.map(coll => coll.name));
       } else if (col.level === 1) {
+        // COLLECTION LEVEL
         assert(index <= 1);
 
         const nextCol = cols[index + 1];
@@ -94,10 +81,31 @@ async function main(host, port) {
           .limit(20)
           .toArray();
 
-        nextCol.setItems(docs.map(doc => "tehe"));
+        nextCol.setItems(docs.map(doc => JSON.stringify(doc)));
+      } else {
+        // DOCUMENT LEVEL
       }
 
-      screen.render();
+      for (let i = index + 2; i < numCols; i++) {
+        // propogate change to the right, and clear out old columns
+        cols[i].setItems([]);
+        delete colCache[i];
+      }
+    });
+
+    screen.render();
+
+    // when we change levels, shift the columns accordingly
+    col.key(["l", "right", "enter"], () => {
+      if (focused > 1) {
+        shiftRight(cols);
+      }
+    });
+
+    col.key(["h", "escape", "left"], () => {
+      if (focused < 1) {
+        shiftLeft(cols);
+      }
     });
   });
 
@@ -137,6 +145,50 @@ async function main(host, port) {
     return process.exit(0);
   });
 
+  cols[focused].focus();
+
+  screen.render();
+}
+
+// shift columns when user moves to the right
+function shiftRight(cols) {
+  const numCols = cols.length;
+  colCache[cols[0].level] = cols[0].getItems();
+
+  for (let i = 0; i < numCols - 1; i++) {
+    cols[i].copyFrom(cols[i + 1]);
+  }
+
+  // need to populate this
+  cols[numCols - 1].setItems([]);
+  cols[numCols - 1].moveLevel(1);
+
+  focused--;
+  cols[focused].focus();
+
+  screen.render();
+}
+
+// shift columns when user moves to the left
+function shiftLeft(cols) {
+  if (cols[0].level === 0) {
+    return; // can't shift any more
+  }
+
+  const numCols = cols.length;
+
+  colCache[cols[numCols - 1].level] = cols[numCols - 1].getItems();
+  for (let i = numCols - 1; i > 0; i--) {
+    cols[i].copyFrom(cols[i - 1]);
+  }
+
+  cols[0].setItems(colCache[cols[0].level - 1]);
+  cols[0].moveLevel(-1);
+
+  // need to populate this
+  cols[numCols - 1].setItems([]);
+
+  focused++;
   cols[focused].focus();
 
   screen.render();

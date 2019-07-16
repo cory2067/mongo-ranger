@@ -28,9 +28,9 @@ const usage = [
   {
     header: "Synopsis",
     content: [
-      "$ mongor [{underline connection-string}]",
-      "$ mongor [{bold --host} {underline host}] [{bold --port} {underline port}]",
-      "$ mongor {bold --help}"
+      "$ mongo-ranger [{underline connection-string}]",
+      "$ mongo-ranger [{bold --host} {underline host}] [{bold --port} {underline port}]",
+      "$ mongo-ranger {bold --help}"
     ]
   },
   {

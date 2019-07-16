@@ -7,7 +7,7 @@ const assert = require("assert");
  * @param options.width
  * @param options.left
  * @param options.level where 0 is Database, 1 is Collection, 2 is top level of Document, etc
- * @returns a blessed.list object, with added functions: setLevel()
+ * @returns a blessed.list object, with added functions: setLevel(level), getItems(), copyFrom(other), moveLevel(delta)
  */
 function column(options) {
   const style = {
@@ -40,6 +40,20 @@ function column(options) {
     assert(level >= 0);
     col.level = level;
     col.setLabel(getLabel(level));
+  };
+
+  col.moveLevel = delta => {
+    col.setLevel(col.level + delta);
+  };
+
+  col.getItems = () => {
+    return col.items.map(i => i.content);
+  };
+
+  col.copyFrom = other => {
+    col.setItems(other.getItems());
+    col.select(other.selected);
+    col.setLevel(other.level);
   };
 
   if (options.level != undefined) {
@@ -77,7 +91,7 @@ function getLabel(level) {
       return "Documents";
   }
 
-  return `Document (Level ${level - 1})`;
+  return `Document (Level ${level - 2})`;
 }
 
 module.exports = {
