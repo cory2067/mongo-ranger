@@ -5,16 +5,16 @@ const MongoClient = require("mongodb").MongoClient;
 const components = require("./components");
 const util = require("./util");
 
-const colCache = {};
 let focused = 0;
-let client, db, screen;
+let client, db, screen, logger;
 
 async function main(host, port) {
-  console.log("Connecting to MongoDB...");
-
   const uri = port ? `${host}:${port}` : host;
+  console.log(`Connecting to ${uri}`);
+
   client = new MongoClient(uri, {
-    useNewUrlParser: true
+    useNewUrlParser: true,
+    appname: "mongo-ranger"
   });
 
   await client.connect();
@@ -57,7 +57,7 @@ async function main(host, port) {
 
     // move up/down or select item
     col.key(
-      ["j", "k", "up", "down", "enter"],
+      ["j", "k", "up", "down"],
       util.crashOnError(screen, () => applySelection(cols, index))
     );
 
@@ -66,52 +66,38 @@ async function main(host, port) {
       util.crashOnError(screen, () => applySelection(cols, index))
     );
 
-    screen.render();
-
     // when we change levels, shift the columns accordingly
     col.key(["l", "right", "enter"], () => {
-      if (focused > 1) {
+      if (focused === numCols - 2) {
         shiftRight(cols);
+      } else {
+        // can change focused column without needing to shift
+        cols[++focused].focus();
       }
     });
 
     col.key(["h", "escape", "left"], () => {
-      if (focused < 1) {
+      if (focused === 1 && cols[0].level > 0) {
         shiftLeft(cols);
+      } else if (focused > 0) {
+        // can change focused column without needing to shift
+        cols[--focused].focus();
       }
     });
   });
 
-  const line = blessed.line({
-    orientation: "horizontal",
-    top: "100%-2",
+  logger = blessed.log({
+    top: "100%-16",
+    height: "0%+16",
     width: "100%",
     style: {
-      fg: "blue"
+      border: {
+        type: "line"
+      }
     }
   });
 
-  screen.append(line);
-
-  screen.key(["l", "right", "enter"], function(ch, key) {
-    if (focused >= numCols - 1) {
-      return;
-    }
-
-    focused++;
-    cols[focused].focus();
-    screen.render();
-  });
-
-  screen.key(["h", "left"], function(ch, key) {
-    if (focused <= 0) {
-      return;
-    }
-
-    focused--;
-    cols[focused].focus();
-    screen.render();
-  });
+  screen.append(logger);
 
   // Quit q or Control-C.
   screen.key(["q", "C-c"], function(ch, key) {
@@ -167,7 +153,6 @@ async function applySelection(cols, index) {
   for (let i = index + 2; i < numCols; i++) {
     // propogate change to the right, and clear out old columns
     cols[i].setItems([]);
-    delete colCache[i];
   }
 
   screen.render();
@@ -176,7 +161,7 @@ async function applySelection(cols, index) {
 // shift columns when user moves to the right
 function shiftRight(cols) {
   const numCols = cols.length;
-  colCache[cols[0].level] = cols[0].getItems();
+  util.saveColumn(cols[0]); // save this before it is removed from the screen
 
   for (let i = 0; i < numCols - 1; i++) {
     cols[i].copyFrom(cols[i + 1]);
@@ -186,31 +171,24 @@ function shiftRight(cols) {
   cols[numCols - 1].setItems([]);
   cols[numCols - 1].moveLevel(1);
 
-  cols[--focused].focus();
+  cols[focused].focus();
 
   screen.render();
 }
 
 // shift columns when user moves to the left
 function shiftLeft(cols) {
-  if (cols[0].level === 0) {
-    return; // can't shift any more
-  }
-
   const numCols = cols.length;
-
-  colCache[cols[numCols - 1].level] = cols[numCols - 1].getItems();
   for (let i = numCols - 1; i > 0; i--) {
     cols[i].copyFrom(cols[i - 1]);
   }
 
-  cols[0].setItems(colCache[cols[0].level - 1]);
-  cols[0].moveLevel(-1);
+  util.loadColumn(cols[0], cols[0].level - 1);
 
   // need to populate this
   cols[numCols - 1].setItems([]);
 
-  cols[++focused].focus();
+  cols[focused].focus();
 
   screen.render();
 }
