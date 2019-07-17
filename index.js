@@ -42,6 +42,15 @@ const usage = [
     ]
   },
   {
+    header: "Controls",
+    content: [
+      "- Browse data using the arrow keys or hjkl (vim-like controls)",
+      "- Use / to search the selected column (does not query db)",
+      "- Use : to type a MongoDB query for the selected collection",
+      "- Move forward on an individual field to edit"
+    ]
+  },
+  {
     header: "Options",
     optionList: optionDefinitions
   }

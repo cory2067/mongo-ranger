@@ -6,7 +6,7 @@ const components = require("./components");
 const util = require("./util");
 
 let focused = 0;
-let client, db, screen, logger, input;
+let client, db, screen, logger, input, cols;
 let ignoreNextSelection = false;
 
 const DOC_LIMIT = 64;
@@ -41,7 +41,7 @@ async function main(options) {
 
   // this should be customizable
   // janky arbitrary values
-  const cols = [
+  cols = [
     components.column({
       width: "18%",
       level: 0,
@@ -57,7 +57,7 @@ async function main(options) {
 
     components.column({
       left: "49%",
-      width: "52%",
+      right: 0,
       level: 2,
       search
     })
@@ -66,7 +66,13 @@ async function main(options) {
   const numCols = cols.length;
 
   // list of databases is only fetched once
-  cols[0].setKeys(dbs.databases.map(db => db.name));
+  // local/admin are troublesome, especially on atlas free tier
+  cols[0].setKeys(
+    dbs.databases
+      .map(db => db.name)
+      .filter(name => name != "local" && name != "admin")
+  );
+
   cols[0].setItems(cols[0].keys);
 
   // initialize listeners for each column
@@ -76,13 +82,13 @@ async function main(options) {
     // move up/down or select item
     col.key(
       ["j", "k", "up", "down"],
-      util.crashOnError(screen, () => applySelection(cols, index))
+      util.crashOnError(screen, () => applySelection(index))
     );
 
     col.on("focus", () => {
       setTimeout(
         // on focus, selected element doesn't always update right away, so using this timeout 0
-        util.crashOnError(screen, () => applySelection(cols, index)),
+        util.crashOnError(screen, () => applySelection(index)),
         0
       );
     });
@@ -90,16 +96,19 @@ async function main(options) {
     // when we change levels, shift the columns accordingly
     col.key(["l", "right", "enter"], () => {
       if (focused === numCols - 2 && util.browser.canAdvance()) {
-        shiftRight(cols);
+        shiftRight();
       } else if (focused < numCols - 1) {
         // can change focused column without needing to shift
         cols[++focused].focus();
+      } else {
+        // can't move forward any more -- start edit mode
+        launchEditor();
       }
     });
 
     col.key(["h", "left"], () => {
       if (focused === 1 && cols[0].level > 0) {
-        shiftLeft(cols);
+        shiftLeft();
       } else if (focused > 0) {
         // can change focused column without needing to shift
         cols[--focused].focus();
@@ -138,7 +147,7 @@ async function main(options) {
     input.readInput((err, val) => {
       if (err) return;
       ignoreNextSelection = true; // avoid resetting documents once column is refocused
-      util.crashOnError(screen, () => applyQuery(cols, val))();
+      util.crashOnError(screen, () => applyQuery(val))();
     });
   });
 
@@ -157,10 +166,9 @@ async function main(options) {
  * Apply the selected item at cols[index], and make the appropriate
  * database calls to populate the column(s) to the right. Re-renders the UI.
  *
- * @param {Array} cols
  * @param {Number} index
  */
-async function applySelection(cols, index) {
+async function applySelection(index) {
   if (ignoreNextSelection) {
     ignoreNextSelection = false;
     return;
@@ -188,7 +196,7 @@ async function applySelection(cols, index) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
-    await applyQuery(cols, `{ "_id": { "$exists": true } }`);
+    await applyQuery(`{ "_id": { "$exists": true } }`);
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
     if (!nextCol) return screen.render();
 
@@ -222,7 +230,7 @@ async function applySelection(cols, index) {
 }
 
 // shift columns when user moves to the right
-function shiftRight(cols) {
+function shiftRight() {
   const numCols = cols.length;
   util.saveColumn(cols[0]); // save this before it is removed from the screen
 
@@ -239,7 +247,7 @@ function shiftRight(cols) {
 }
 
 // shift columns when user moves to the left
-function shiftLeft(cols) {
+function shiftLeft() {
   const numCols = cols.length;
   for (let i = numCols - 1; i > 0; i--) {
     cols[i].copyFrom(cols[i - 1]);
@@ -253,10 +261,9 @@ function shiftLeft(cols) {
 
 /**
  * Apply a user-inputted query to the currently-selected collection
- * @param {Array} cols
  * @param {String} query MQL query string
  */
-async function applyQuery(cols, query) {
+async function applyQuery(query) {
   const col = cols[focused];
   const nextCol = cols[focused + 1];
   assert(col.level == util.levels.COLLECTION);
@@ -265,11 +272,12 @@ async function applyQuery(cols, query) {
   const collection = col.getKey(col.selected);
   logger.log(`Querying "${query}" on db.${collection}`);
 
-  let json;
+  let queryObj;
   try {
-    json = JSON.parse(query);
+    // user could easily inject arbitrary JS, but it's running on their own machine
+    queryObj = eval(`(${query})`);
   } catch (e) {
-    input.setValue("Query must be valid JSON!");
+    input.setValue("Query cannot be parsed!");
     return screen.render();
   }
 
@@ -277,7 +285,7 @@ async function applyQuery(cols, query) {
   try {
     docs = await db
       .collection(collection)
-      .find(json)
+      .find(queryObj)
       .limit(DOC_LIMIT)
       .toArray();
   } catch (e) {
@@ -286,9 +294,36 @@ async function applyQuery(cols, query) {
   }
 
   logger.log(`Found ${docs.length} results`);
-  util.browser.load(docs);
+  util.browser.load(collection, docs);
   nextCol.setKeys(docs.map(doc => doc._id.toString()));
   nextCol.setItems(docs.map(doc => util.stringify(doc)));
+  screen.render();
+}
+
+function launchEditor() {
+  input.setLabel("{blue-fg}{bold}Edit{/}");
+  const content = util.browser.get();
+
+  logger.log("Editing: " + content);
+  input.setValue(JSON.stringify(content));
+  screen.render();
+
+  input.readInput(
+    util.crashOnError(screen, async (err, val) => {
+      if (err) return;
+
+      let valObj;
+      try {
+        valObj = eval(`(${val})`);
+      } catch (e) {
+        input.setValue("Value is malformed, aborting");
+        return screen.render();
+      }
+
+      logger.log("Updating value to: " + valObj);
+    })
+  );
+
   screen.render();
 }
 

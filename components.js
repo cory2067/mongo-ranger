@@ -11,6 +11,7 @@ const util = require("./util");
  *
  * @param options.width
  * @param options.left
+ * @param options.right
  * @param options.level where 0 is Database, 1 is Collection, 2 is top level of Document, etc
  * @param options.search a function to run on key /, accepts a cb which expects a search string
  * @returns a column object
@@ -30,8 +31,9 @@ function column(options) {
   };
 
   const col = blessed.list({
-    left: options.left || "0",
+    left: options.left,
     width: options.width,
+    right: options.right,
     height: "100%-2",
     tags: true,
     keys: true,

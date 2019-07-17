@@ -16,8 +16,8 @@ const levels = {
  * @param {function} fn async function to run
  */
 function crashOnError(screen, fn) {
-  return () => {
-    return fn().catch(e => {
+  return (...args) => {
+    return fn(...args).catch(e => {
       if (screen) screen.destroy();
       console.error(e);
       return process.exit(1);
@@ -57,10 +57,12 @@ function loadColumn(col, level) {
  * Utility for browsing the contents of a collection.
  */
 const browser = {
+  collection: null,
   docs: {},
   cursor: [],
 
-  load: function(docs) {
+  load: function(collection, docs) {
+    this.collection = collection;
     this.docs = {};
     this.cursor = [];
     for (const doc of docs) {
