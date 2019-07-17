@@ -6,7 +6,10 @@ const components = require("./components");
 const util = require("./util");
 
 let focused = 0;
-let client, db, screen, logger;
+let client, db, screen, logger, input;
+let ignoreNextSelection = false;
+
+const DOC_LIMIT = 64;
 
 async function main(options) {
   const uri = options.port ? `${options.host}:${options.port}` : options.host;
@@ -27,10 +30,11 @@ async function main(options) {
     dockBorders: true
   });
 
-  const input = components.input();
+  input = components.input();
 
   const search = cb => {
     input.clearValue();
+    input.setLabel("{cyan-fg}{bold}Search{/}");
     screen.render();
     input.readInput(cb);
   };
@@ -116,8 +120,30 @@ async function main(options) {
     };
   }
 
+  // Handle query request
+  screen.key([":"], () => {
+    const col = cols[focused];
+    input.setLabel("{green-fg}{bold}Query{/}");
+    if (col.level !== util.levels.COLLECTION) {
+      input.setText(
+        "Must select a collection in order to query!" +
+          (col.level === util.levels.DOCUMENT_BASE ? " (Go back a level)" : "")
+      );
+      return screen.render();
+    }
+
+    input.clearValue();
+    screen.render();
+
+    input.readInput((err, val) => {
+      if (err) return;
+      ignoreNextSelection = true; // avoid resetting documents once column is refocused
+      util.crashOnError(screen, () => applyQuery(cols, val))();
+    });
+  });
+
   // Quit q or Control-C.
-  screen.key(["q", "C-c"], function(ch, key) {
+  screen.key(["q", "C-c"], () => {
     client.close();
     return process.exit(0);
   });
@@ -135,6 +161,11 @@ async function main(options) {
  * @param {Number} index
  */
 async function applySelection(cols, index) {
+  if (ignoreNextSelection) {
+    ignoreNextSelection = false;
+    return;
+  }
+
   const col = cols[index];
   const nextCol = cols[index + 1]; // undefined for last column
   const numCols = cols.length;
@@ -157,15 +188,7 @@ async function applySelection(cols, index) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
-    const docs = await db
-      .collection(selectedKey)
-      .find({ _id: { $exists: true } })
-      .limit(64)
-      .toArray();
-
-    util.browser.load(docs);
-    nextCol.setKeys(docs.map(doc => doc._id.toString()));
-    nextCol.setItems(docs.map(doc => util.stringify(doc)));
+    await applyQuery(cols, `{ "_id": { "$exists": true } }`);
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
     if (!nextCol) return screen.render();
 
@@ -225,6 +248,47 @@ function shiftLeft(cols) {
   util.loadColumn(cols[0], cols[0].level - 1);
 
   cols[focused].focus(); // trigger reload data
+  screen.render();
+}
+
+/**
+ * Apply a user-inputted query to the currently-selected collection
+ * @param {Array} cols
+ * @param {String} query MQL query string
+ */
+async function applyQuery(cols, query) {
+  const col = cols[focused];
+  const nextCol = cols[focused + 1];
+  assert(col.level == util.levels.COLLECTION);
+  assert(!!nextCol);
+
+  const collection = col.getKey(col.selected);
+  logger.log(`Querying "${query}" on db.${collection}`);
+
+  let json;
+  try {
+    json = JSON.parse(query);
+  } catch (e) {
+    input.setValue("Query must be valid JSON!");
+    return screen.render();
+  }
+
+  let docs;
+  try {
+    docs = await db
+      .collection(collection)
+      .find(json)
+      .limit(DOC_LIMIT)
+      .toArray();
+  } catch (e) {
+    input.setValue(e.toString());
+    return screen.render();
+  }
+
+  logger.log(`Found ${docs.length} results`);
+  util.browser.load(docs);
+  nextCol.setKeys(docs.map(doc => doc._id.toString()));
+  nextCol.setItems(docs.map(doc => util.stringify(doc)));
   screen.render();
 }
 

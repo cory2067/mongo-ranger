@@ -138,6 +138,7 @@ function input() {
   const input = blessed.textbox({
     top: "100%-3",
     height: 3,
+    tags: true,
     width: "100%",
     border: {
       type: "line"
