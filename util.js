@@ -109,8 +109,12 @@ const browser = {
     if (!Object.keys(this.docs).length) return false;
 
     const item = this.get();
-    if (Array.isArray(item) || isObject(item)) {
-      return true;
+    if (Array.isArray(item)) {
+      return item.length > 0;
+    }
+
+    if (isObject(item)) {
+      return Object.keys(item).length > 0;
     }
 
     return false;
@@ -121,18 +125,26 @@ function isObject(obj) {
   return !!obj && typeof obj === "object";
 }
 
-// TODO improve performance of stringify
 function stringifyWrapper(obj) {
   return stringifyWithLimit(obj, (process.stdout.columns || 128) / 2);
 }
 
 function stringifyWithLimit(obj, maxLength) {
-  const parts = stringify(obj).split("{/}");
+  const str = stringify(obj);
+  if (!str || str.length < maxLength) return str;
+
+  // handle large string that may need to be trimmed
+  const parts = str.split("{/}");
   let result = "";
   for (const part of parts) {
     result += part + "{/}";
 
-    if (blessed.stripTags(result).length >= maxLength) break;
+    if (
+      result.length >= maxLength && // short circuit to avoid many strip tags
+      blessed.stripTags(result).length >= maxLength
+    ) {
+      break;
+    }
   }
 
   return result;
@@ -171,6 +183,7 @@ function stringify(obj) {
   return colorize(JSON.stringify(obj));
 }
 
+// syntax highlighting
 function colorize(str) {
   if (!str.length) return "";
 
