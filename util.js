@@ -143,6 +143,7 @@ function stringifyWithLimit(obj, maxLength) {
       result.length >= maxLength && // short circuit to avoid many strip tags
       blessed.stripTags(result).length >= maxLength
     ) {
+      result += "...";
       break;
     }
   }
@@ -158,7 +159,9 @@ function stringify(obj) {
 
   if (obj.toJSON) {
     // e.g. dates which implement a toJSON
-    return colorize(obj.toJSON());
+    const json = obj.toJSON();
+    if (json.length) return colorize(json);
+    return colorize("{Object}"); // some weird object
   }
 
   if (Array.isArray(obj)) {

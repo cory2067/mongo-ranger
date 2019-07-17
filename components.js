@@ -12,6 +12,7 @@ const util = require("./util");
  * @param options.width
  * @param options.left
  * @param options.level where 0 is Database, 1 is Collection, 2 is top level of Document, etc
+ * @param options.search a function to run on key /, accepts a cb which expects a search string
  * @returns a column object
  */
 function column(options) {
@@ -31,14 +32,15 @@ function column(options) {
   const col = blessed.list({
     left: options.left || "0",
     width: options.width,
-    height: "100%",
+    height: "100%-2",
     tags: true,
     keys: true,
     vi: true,
     border: {
       type: "line"
     },
-    style
+    style,
+    search: options.search
   });
 
   // contains the raw keys used to index into the next level
@@ -129,7 +131,24 @@ function logger() {
   return logger;
 }
 
+/**
+ * Returns a textbox across the bottom of the screen
+ */
+function input() {
+  const input = blessed.textbox({
+    top: "100%-3",
+    height: 3,
+    width: "100%",
+    border: {
+      type: "line"
+    }
+  });
+
+  return input;
+}
+
 module.exports = {
   column,
-  logger
+  logger,
+  input
 };

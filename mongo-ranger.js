@@ -27,24 +27,35 @@ async function main(options) {
     dockBorders: true
   });
 
+  const input = components.input();
+
+  const search = cb => {
+    input.clearValue();
+    screen.render();
+    input.readInput(cb);
+  };
+
   // this should be customizable
   // janky arbitrary values
   const cols = [
     components.column({
       width: "18%",
-      level: 0
+      level: 0,
+      search
     }),
 
     components.column({
       left: "16%",
       width: "36%",
-      level: 1
+      level: 1,
+      search
     }),
 
     components.column({
       left: "49%",
-      width: "51%",
-      level: 2
+      width: "52%",
+      level: 2,
+      search
     })
   ];
 
@@ -64,10 +75,13 @@ async function main(options) {
       util.crashOnError(screen, () => applySelection(cols, index))
     );
 
-    col.on(
-      "focus",
-      util.crashOnError(screen, () => applySelection(cols, index))
-    );
+    col.on("focus", () => {
+      setTimeout(
+        // on focus, selected element doesn't always update right away, so using this timeout 0
+        util.crashOnError(screen, () => applySelection(cols, index)),
+        0
+      );
+    });
 
     // when we change levels, shift the columns accordingly
     col.key(["l", "right", "enter"], () => {
@@ -88,6 +102,8 @@ async function main(options) {
       }
     });
   });
+
+  screen.append(input);
 
   // Handle debug mode
   if (options.debug) {
@@ -159,14 +175,14 @@ async function applySelection(cols, index) {
     if (Array.isArray(content)) {
       nextCol.setItems(content.map(util.stringify));
       nextCol.setKeys(Array.from(content.keys())); // arr of indices
-    } else if (util.isObject(content)) {
+    } else if (util.isObject(content) && Object.keys(content).length) {
       nextCol.setKeys(Object.keys(content));
       nextCol.setItems(
         nextCol.keys.map(k => `{bold}${k}:{/} ${util.stringify(content[k])}`)
       );
     } else {
-      nextCol.setKeys([util.stringify(content)]);
-      nextCol.setItems(nextCol.keys);
+      nextCol.setKeys([JSON.stringify(content)]); // plain/unformatted
+      nextCol.setItems([util.stringify(content)]);
     }
   }
 
