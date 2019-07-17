@@ -6,7 +6,8 @@ const components = require("./components");
 const util = require("./util");
 
 let focused = 0;
-let client, db, screen, logger, input, cols;
+let client, db; // mongo connection
+let screen, logger, input, cols; // all Blessed components
 let ignoreNextSelection = false;
 
 const DOC_LIMIT = 64;
@@ -196,7 +197,7 @@ async function applySelection(index) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
-    await applyQuery(`{ "_id": { "$exists": true } }`);
+    await applyQuery("{}");
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
     if (!nextCol) return screen.render();
 
@@ -274,8 +275,7 @@ async function applyQuery(query) {
 
   let queryObj;
   try {
-    // user could easily inject arbitrary JS, but it's running on their own machine
-    queryObj = eval(`(${query})`);
+    queryObj = util.stringToQuery(query);
   } catch (e) {
     input.setValue("Query cannot be parsed!");
     return screen.render();
@@ -295,7 +295,7 @@ async function applyQuery(query) {
 
   logger.log(`Found ${docs.length} results`);
   util.browser.load(collection, docs);
-  nextCol.setKeys(docs.map(doc => doc._id.toString()));
+  nextCol.setKeys(Array.from(docs.keys())); // arr of indices
   nextCol.setItems(docs.map(doc => util.stringify(doc)));
   screen.render();
 }
@@ -314,7 +314,7 @@ function launchEditor() {
 
       let valObj;
       try {
-        valObj = eval(`(${val})`);
+        valObj = util.stringToQuery(val);
       } catch (e) {
         input.setValue("Value is malformed, aborting");
         return screen.render();

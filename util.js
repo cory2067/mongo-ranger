@@ -58,16 +58,13 @@ function loadColumn(col, level) {
  */
 const browser = {
   collection: null,
-  docs: {},
+  docs: [],
   cursor: [],
 
   load: function(collection, docs) {
     this.collection = collection;
-    this.docs = {};
+    this.docs = docs;
     this.cursor = [];
-    for (const doc of docs) {
-      this.docs[doc._id] = doc;
-    }
   },
 
   traverse: function(level, selection) {
@@ -204,6 +201,16 @@ function colorize(str) {
   return `{red-fg}${str}{/}`;
 }
 
+/**
+ * Convert string to a JS object, to be fed to the mongo driver.
+ * Will throw an error if the string is malformed.
+ * @param {String} string to convert
+ */
+function stringToQuery(string) {
+  // todo: should avoid using eval
+  return eval(`(${string})`);
+}
+
 module.exports = {
   crashOnError,
   saveColumn,
@@ -211,5 +218,6 @@ module.exports = {
   levels,
   isObject,
   stringify: stringifyWrapper,
-  browser
+  browser,
+  stringToQuery
 };
