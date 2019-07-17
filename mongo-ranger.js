@@ -28,15 +28,16 @@ async function main(options) {
   });
 
   // this should be customizable
+  // janky arbitrary values
   const cols = [
     components.column({
-      width: "17%",
+      width: "18%",
       level: 0
     }),
 
     components.column({
       left: "16%",
-      width: "34%",
+      width: "36%",
       level: 1
     }),
 
@@ -88,17 +89,9 @@ async function main(options) {
     });
   });
 
+  // Handle debug mode
   if (options.debug) {
-    logger = blessed.log({
-      left: "80%",
-      height: "100%",
-      label: "Debug Log",
-      width: "20%",
-      border: {
-        type: "line"
-      }
-    });
-
+    logger = components.logger();
     screen.append(logger);
   } else {
     logger = {

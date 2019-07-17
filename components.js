@@ -112,6 +112,24 @@ function getLabel(level) {
   return `Document (Level ${level - util.levels.DOCUMENT_BASE})`;
 }
 
+/**
+ * Returns a log for debugging purposes anchored on the right of the screen.
+ */
+function logger() {
+  const logger = blessed.log({
+    left: "80%",
+    height: "100%",
+    label: "Debug Log",
+    width: "20%",
+    border: {
+      type: "line"
+    }
+  });
+
+  return logger;
+}
+
 module.exports = {
-  column
+  column,
+  logger
 };
