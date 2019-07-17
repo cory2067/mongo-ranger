@@ -3,12 +3,16 @@ const assert = require("assert");
 const util = require("./util");
 
 /**
- * Create a new column element for mongor
+ * Create a new column element for mongo-ranger
+ *
+ * Wraps blessed.list, and adds the following functions:
+ * setLevel(level), getItems(), copyFrom(other), moveLevel(delta),
+ * setKeys(keyList), getKey(index)
  *
  * @param options.width
  * @param options.left
  * @param options.level where 0 is Database, 1 is Collection, 2 is top level of Document, etc
- * @returns a blessed.list object, with added functions: setLevel(level), getItems(), copyFrom(other), moveLevel(delta)
+ * @returns a column object
  */
 function column(options) {
   const style = {
@@ -37,6 +41,18 @@ function column(options) {
     style
   });
 
+  // contains the raw keys used to index into the next level
+  // unlike col.items which contains a human-readable formatted string
+  col.keys = [];
+
+  col.setKeys = keys => {
+    col.keys = keys;
+  };
+
+  col.getKey = index => {
+    return col.keys[index];
+  };
+
   col.setLevel = level => {
     assert(level >= util.levels.DATABASE);
     col.level = level;
@@ -55,6 +71,7 @@ function column(options) {
     col.setItems(other.getItems());
     col.select(other.selected);
     col.setLevel(other.level);
+    col.setKeys(other.keys);
   };
 
   if (options.level != undefined) {

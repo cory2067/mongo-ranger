@@ -50,7 +50,8 @@ async function main(options) {
   const numCols = cols.length;
 
   // list of databases is only fetched once
-  cols[0].setItems(dbs.databases.map(db => db.name));
+  cols[0].setKeys(dbs.databases.map(db => db.name));
+  cols[0].setItems(cols[0].keys);
 
   // initialize listeners for each column
   cols.forEach((col, index) => {
@@ -119,64 +120,60 @@ async function main(options) {
 
 /**
  * Apply the selected item at cols[index], and make the appropriate
- * database calls to populate the column(s) to the right
+ * database calls to populate the column(s) to the right. Re-renders the UI.
  *
  * @param {Array} cols
  * @param {Number} index
  */
 async function applySelection(cols, index) {
   const col = cols[index];
+  const nextCol = cols[index + 1]; // undefined for last column
   const numCols = cols.length;
 
-  const selectedItem = col.getItem(col.selected);
-  if (!selectedItem) {
+  const selectedKey = col.getKey(col.selected);
+  logger.log("Selected: " + selectedKey);
+  if (selectedKey === undefined) {
     return screen.render(); // list was empty
   }
 
-  const selected = selectedItem.content;
   if (col.level === util.levels.DATABASE) {
     // A selection on the DATABASE level loads the COLLECTION level
     assert(index === 0);
 
-    const nextCol = cols[index + 1];
-    db = client.db(selected);
+    db = client.db(selectedKey);
     const collections = await db.listCollections().toArray();
-    nextCol.setItems(collections.map(coll => coll.name));
+    nextCol.setKeys(collections.map(coll => coll.name));
+    nextCol.setItems(nextCol.keys); // no formatting
   } else if (col.level === util.levels.COLLECTION) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
-    const nextCol = cols[index + 1];
     const docs = await db
-      .collection(selected)
+      .collection(selectedKey)
       .find({ _id: { $exists: true } })
       .limit(64)
       .toArray();
 
     util.browser.load(docs);
-    nextCol.setItems(docs.map(doc => doc._id.toString()));
+    nextCol.setKeys(docs.map(doc => doc._id.toString()));
+    nextCol.setItems(docs.map(doc => util.stringify(doc)));
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
-    const nextCol = cols[index + 1];
     if (!nextCol) return screen.render();
-    let content;
 
-    // advance to the next level differently, depending on what type we're dealing with
-    const parent = util.browser.get(col.level - 1);
-    if (Array.isArray(parent)) {
-      // use index rather than the value
-      content = util.browser.traverse(col.level, col.selected);
-    } else if (util.isObject(parent)) {
-      content = util.browser.traverse(col.level, selected.split(":")[0]);
-    } else {
-      content = parent;
-    }
+    // content of the document/sub-document the user selected
+    const content = util.browser.traverse(col.level, selectedKey);
 
     if (Array.isArray(content)) {
-      nextCol.setItems(content.map(el => el + ""));
+      nextCol.setItems(content.map(util.stringify));
+      nextCol.setKeys(Array.from(content.keys())); // arr of indices
     } else if (util.isObject(content)) {
-      nextCol.setItems(Object.keys(content).map(k => `${k}: ${content[k]}`));
+      nextCol.setKeys(Object.keys(content));
+      nextCol.setItems(
+        nextCol.keys.map(k => `{bold}${k}:{/} ${util.stringify(content[k])}`)
+      );
     } else {
-      nextCol.setItems([content + ""]);
+      nextCol.setKeys([util.stringify(content)]);
+      nextCol.setItems(nextCol.keys);
     }
   }
 
