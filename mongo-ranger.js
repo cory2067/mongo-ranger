@@ -4,6 +4,7 @@ const MongoClient = require("mongodb").MongoClient;
 
 const components = require("./components");
 const util = require("./util");
+const browser = require("./browser");
 
 let focused = 0;
 let client, db; // mongo connection
@@ -96,7 +97,7 @@ async function main(options) {
 
     // when we change levels, shift the columns accordingly
     col.key(["l", "right", "enter"], () => {
-      if (focused === numCols - 2 && util.browser.canAdvance()) {
+      if (focused === numCols - 2 && browser.canAdvance()) {
         shiftRight();
       } else if (focused < numCols - 1) {
         // can change focused column without needing to shift
@@ -180,7 +181,7 @@ async function applySelection(index) {
   const numCols = cols.length;
 
   const selectedKey = col.getKey(col.selected);
-  logger.log("Selected: " + selectedKey);
+  logger.log("Selected: " + util.stringify(selectedKey));
   if (selectedKey === undefined) {
     return screen.render(); // list was empty
   }
@@ -202,7 +203,7 @@ async function applySelection(index) {
     if (!nextCol) return screen.render();
 
     // content of the document/sub-document the user selected
-    const content = util.browser.traverse(col.level, selectedKey);
+    const content = browser.traverse(col.level, selectedKey);
 
     if (Array.isArray(content)) {
       nextCol.setItems(content.map(util.stringify));
@@ -223,8 +224,8 @@ async function applySelection(index) {
     cols[i].setItems([]);
   }
 
-  if (util.browser.cursor.length) {
-    logger.log(`Cursor: [${util.browser.cursor}]`);
+  if (browser.cursor.length) {
+    logger.log(`Cursor: ${util.stringify(browser.cursor)}`);
   }
 
   screen.render();
@@ -294,7 +295,7 @@ async function applyQuery(query) {
   }
 
   logger.log(`Found ${docs.length} results`);
-  util.browser.load(collection, docs);
+  browser.load(collection, docs);
   nextCol.setKeys(Array.from(docs.keys())); // arr of indices
   nextCol.setItems(docs.map(doc => util.stringify(doc)));
   screen.render();
@@ -302,9 +303,9 @@ async function applyQuery(query) {
 
 function launchEditor() {
   input.setLabel("{blue-fg}{bold}Edit{/}");
-  const content = util.browser.get();
+  const content = browser.get();
 
-  logger.log("Editing: " + content);
+  logger.log("Editing: " + util.stringify(content));
   input.setValue(JSON.stringify(content));
   screen.render();
 
@@ -320,7 +321,7 @@ function launchEditor() {
         return screen.render();
       }
 
-      logger.log("Updating value to: " + valObj);
+      logger.log("Updating value to: " + util.stringify(valObj));
     })
   );
 

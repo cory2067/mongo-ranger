@@ -125,6 +125,7 @@ function logger() {
     height: "100%",
     label: "Debug Log",
     width: "20%",
+    tags: true,
     border: {
       type: "line"
     }
