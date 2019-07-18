@@ -135,6 +135,9 @@ async function main(options) {
   // Handle add/insert request
   screen.key(["i"], util.crashOnError(screen, promptInsert));
 
+  // Handle delete request
+  screen.key(["d"], util.crashOnError(screen, deleteSelected));
+
   // Quit q or Control-C.
   screen.key(["q", "C-c"], () => {
     client.close();
@@ -415,6 +418,31 @@ async function promptEdit() {
   screen.render();
 }
 
+async function deleteSelected() {
+  const col = cols[focused];
+  if (col.level < util.levels.DOCUMENT_BASE) {
+    input.setError("Deleting this is not yet supported");
+    return screen.render();
+  }
+
+  if (col.level === util.levels.DOCUMENT_BASE) {
+    const doc = browser.get();
+    assert(!!doc._id);
+    logger.log(`Deleting ${doc._id} from db.${browser.collection}`);
+
+    try {
+      await db.collection(browser.collection).deleteOne({ _id: doc._id });
+    } catch (e) {
+      input.setError(e.toString());
+      return screen.render();
+    }
+
+    propogateDelete(doc);
+  }
+
+  const prop = browser.cursor.slice(1).join("."); // property to be updated
+}
+
 // update all columns to reflect an updated document
 function propogateUpdate(doc) {
   assert(!!doc);
@@ -454,6 +482,18 @@ function propogateInsert(doc) {
   assert(!!doc);
 
   browser.insert(doc);
+
+  // update document layer
+  const col = cols[focused];
+  assert(col.level === util.levels.DOCUMENT_BASE);
+  const content = browser.get(col.level);
+  setColumnContents(col, content);
+}
+
+function propogateDelete(doc) {
+  assert(!!doc);
+
+  browser.delete(doc);
 
   // update document layer
   const col = cols[focused];

@@ -67,6 +67,11 @@ const browser = {
     this.docs.push(doc);
   },
 
+  delete: function(doc) {
+    assert(!!doc._id);
+    this.docs = this.docs.filter(d => d._id !== doc._id);
+  },
+
   canAdvance: function() {
     if (!Object.keys(this.docs).length) return false;
 
