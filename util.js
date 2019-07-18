@@ -153,7 +153,7 @@ function colorize(str) {
  * Will throw an error if the string is malformed.
  * @param {String} string to convert
  */
-function stringToQuery(string) {
+function stringToObject(string) {
   // todo: should avoid using eval
   return eval(`(${string})`);
 }
@@ -167,5 +167,5 @@ module.exports = {
   isObject,
   stringify: stringifyWrapper,
   colorize,
-  stringToQuery
+  stringToObject: stringToObject
 };

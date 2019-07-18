@@ -148,6 +148,9 @@ async function main(options) {
     });
   });
 
+  // Handle add/insert request
+  screen.key(["i"], util.crashOnError(screen, launchAdder));
+
   // Quit q or Control-C.
   screen.key(["q", "C-c"], () => {
     client.close();
@@ -220,7 +223,8 @@ function setColumnContents(col, content) {
   if (Array.isArray(content)) {
     col.setItems(content.map(util.stringify));
     col.setKeys(Array.from(content.keys())); // arr of indices
-  } else if (util.isObject(content) && Object.keys(content).length) {
+  } else if (util.isObject(content)) {
+    //q && Object.keys(content).length) {
     col.setKeys(Object.keys(content));
     col.setItems(
       col.keys.map(k => `{bold}${k}:{/} ${util.stringify(content[k])}`)
@@ -276,7 +280,7 @@ async function applyQuery(query) {
 
   let queryObj;
   try {
-    queryObj = util.stringToQuery(query);
+    queryObj = util.stringToObject(query);
   } catch (e) {
     input.setError("Query cannot be parsed!");
     return screen.render();
@@ -300,6 +304,119 @@ async function applyQuery(query) {
   screen.render();
 }
 
+// Adder used to add a new field to a document
+async function launchAdder() {
+  const col = cols[focused];
+  if (col.level <= util.levels.DOCUMENT_BASE) {
+    return; // can't add a field to this low a level
+  }
+
+  const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
+  const prop = browser.cursor
+    .slice(1, col.level - util.levels.DOCUMENT_BASE)
+    .join("."); // property to be updated
+
+  const content = browser.get(col.level); // array/obj to insert to
+  assert(!!doc._id);
+  if (Array.isArray(content)) {
+    logger.log("Append to " + util.stringify(prop));
+    input.setLabel("{blue-fg}{bold}Add to array{/}");
+    input.clearValue();
+    screen.render();
+
+    input.readInput(async (err, val) => {
+      if (err) return;
+
+      let valObj;
+      try {
+        valObj = util.stringToObject(val);
+      } catch (e) {
+        input.setError("Value is malformed, aborting");
+        return screen.render();
+      }
+
+      let res;
+      try {
+        res = await db
+          .collection(browser.collection)
+          .findOneAndUpdate(
+            { _id: doc._id },
+            { $push: { [prop]: valObj } },
+            { returnOriginal: false }
+          );
+      } catch (e) {
+        input.setError(e.toString());
+        return screen.render;
+      }
+
+      propogateChange(res.value);
+      if (focused === cols.length - 1) {
+        shiftRight(); // we may have introduced a new layer
+        cols[--focused].focus();
+      }
+
+      screen.render();
+    });
+  } else if (util.isObject(content)) {
+    logger.log("Add to " + util.stringify(prop));
+    input.setLabel("{blue-fg}{bold}Add new field{/}");
+    input.clearValue();
+    screen.render();
+
+    input.readInput(async (err, key) => {
+      if (err) return;
+
+      if (key[0] === '"' && key[key.length - 1] === '"') {
+        key = key.substr(1, key.length - 2);
+      }
+
+      input.setLabel(`{blue-fg}{bold}Specify value for "${key}"{/}`);
+      input.clearValue();
+      screen.render();
+
+      input.readInput(async (err, val) => {
+        if (err) return;
+        let valObj;
+        try {
+          valObj = util.stringToObject(val);
+        } catch (e) {
+          input.setError("Value is malformed, aborting");
+          return screen.render();
+        }
+
+        let res;
+        let pathToKey = `${prop}.${key}`;
+        try {
+          res = await db
+            .collection(browser.collection)
+            .findOneAndUpdate(
+              { _id: doc._id },
+              { $set: { [pathToKey]: valObj } },
+              { returnOriginal: false }
+            );
+        } catch (e) {
+          input.setError(e.toString());
+          return screen.render();
+        }
+
+        propogateChange(res.value);
+        if (focused === cols.length - 1) {
+          shiftRight(); // we may have introduced a new layer
+          cols[--focused].focus();
+        }
+
+        screen.render();
+      });
+    });
+  } else {
+    input.setError(
+      "Cannot append to field of type " + util.colorize(typeof content)
+    );
+    return screen.render();
+  }
+}
+
+// Editor used to edit existing fields
 function launchEditor() {
   input.setLabel("{blue-fg}{bold}Edit{/}");
   const content = browser.get();
@@ -314,7 +431,7 @@ function launchEditor() {
 
       let valObj;
       try {
-        valObj = util.stringToQuery(val);
+        valObj = util.stringToObject(val);
       } catch (e) {
         input.setError("Value is malformed, aborting");
         return screen.render();
