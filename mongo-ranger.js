@@ -427,7 +427,6 @@ async function deleteSelected() {
 
   if (col.level === util.levels.DOCUMENT_BASE) {
     const doc = browser.get();
-    assert(!!doc._id);
     logger.log(`Deleting ${doc._id} from db.${browser.collection}`);
 
     try {
@@ -438,6 +437,20 @@ async function deleteSelected() {
     }
 
     propogateDelete(doc);
+  } else {
+    if (focused === cols.length - 1) {
+      input.setError("To delete properties, go back a layer");
+      return screen.render();
+    }
+
+    const prop = browser.cursor.slice(1).join("."); // property to be deleted
+    const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
+    logger.log(`Deleting ${prop} from document ${doc._id}`);
+    const res = await dbUpdate(doc, { $unset: { [prop]: "" } });
+    if (!res) return;
+
+    propogateUpdate(res);
+    screen.render();
   }
 
   const prop = browser.cursor.slice(1).join("."); // property to be updated
