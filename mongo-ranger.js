@@ -199,23 +199,11 @@ async function applySelection(index) {
 
     // content of the document/sub-document the user selected
     const content = browser.traverse(col.level, selectedKey);
-
-    if (Array.isArray(content)) {
-      nextCol.setItems(content.map(util.stringify));
-      nextCol.setKeys(Array.from(content.keys())); // arr of indices
-    } else if (util.isObject(content) && Object.keys(content).length) {
-      nextCol.setKeys(Object.keys(content));
-      nextCol.setItems(
-        nextCol.keys.map(k => `{bold}${k}:{/} ${util.stringify(content[k])}`)
-      );
-    } else {
-      nextCol.setKeys([JSON.stringify(content)]); // plain/unformatted
-      nextCol.setItems([util.stringify(content)]);
-    }
+    setColumnContents(nextCol, content);
   }
 
   for (let i = index + 2; i < numCols; i++) {
-    // propogate change to the right, and clear out old columns
+    // clear out old columns if necessary
     cols[i].setItems([]);
   }
 
@@ -224,6 +212,23 @@ async function applySelection(index) {
   }
 
   screen.render();
+}
+
+// set the contents of a column to display the specified javascript object, with pretty printing
+// accepts true columns and virtual (not visible) columns
+function setColumnContents(col, content) {
+  if (Array.isArray(content)) {
+    col.setItems(content.map(util.stringify));
+    col.setKeys(Array.from(content.keys())); // arr of indices
+  } else if (util.isObject(content) && Object.keys(content).length) {
+    col.setKeys(Object.keys(content));
+    col.setItems(
+      col.keys.map(k => `{bold}${k}:{/} ${util.stringify(content[k])}`)
+    );
+  } else {
+    col.setKeys([JSON.stringify(content)]); // plain/unformatted
+    col.setItems([util.stringify(content)]);
+  }
 }
 
 // shift columns when user moves to the right
@@ -291,8 +296,7 @@ async function applyQuery(query) {
 
   logger.log(`Found ${docs.length} results`);
   browser.load(collection, docs);
-  nextCol.setKeys(Array.from(docs.keys())); // arr of indices
-  nextCol.setItems(docs.map(doc => util.stringify(doc)));
+  setColumnContents(nextCol, docs);
   screen.render();
 }
 
@@ -316,44 +320,60 @@ function launchEditor() {
         return screen.render();
       }
 
-      const doc = browser.get(util.levels.DOCUMENT_BASE);
+      const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
       const prop = browser.cursor.slice(1).join("."); // property to be updated
       logger.log(`Updating ${prop} to: ${util.stringify(valObj)}`);
 
       assert(!!doc._id);
+      let res;
       try {
-        const res = await db
+        res = await db
           .collection(browser.collection)
           .findOneAndUpdate(
             { _id: doc._id },
             { $set: { [prop]: valObj } },
             { returnOriginal: false }
           );
-
-        const updatedDoc = res.value;
-        browser.update(updatedDoc);
-
-        focused--;
-        while (cols[cols.length - 1].level != util.levels.DOCUMENT_BASE) {
-          shiftLeft();
-        }
-        ignoreNextSelection = true; // ignore duplicate reload
-
-        /*
-        const nModified = res.result.nModified;
-        if (nModified === 0) {
-          input.setValue("No documents were modified");
-        }
-        */
       } catch (e) {
         input.setValue(e.toString());
+        return screen.render();
       }
 
+      propogateChange(res.value);
       screen.render();
     })
   );
 
   screen.render();
+}
+
+// update all columns to reflect an updated document
+function propogateChange(doc) {
+  assert(!!doc);
+
+  // update data stored in the browser, but we have to update the UI separately
+  browser.update(doc);
+
+  // update cols from right to left
+  for (let i = focused; i >= 0; i--) {
+    const col = cols[i];
+
+    const content = browser.get(col.level);
+    setColumnContents(col, content);
+  }
+
+  const lowestVisibleLevel = cols[0].level;
+  for (
+    let level = lowestVisibleLevel - 1;
+    level >= util.levels.DOCUMENT_BASE;
+    level--
+  ) {
+    // for deeply nested updates, we may need to update columns that are off the screen
+    const col = util.getVirtualColumn(level);
+
+    const content = browser.get(level);
+    setColumnContents(col, content);
+  }
 }
 
 module.exports = main;

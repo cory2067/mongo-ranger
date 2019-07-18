@@ -50,7 +50,7 @@ const browser = {
 
     let result = this.docs;
     for (const depth in this.cursor) {
-      if (depth > maxDepth) break;
+      if (depth >= maxDepth) break;
       result = result[this.cursor[depth]];
     }
 

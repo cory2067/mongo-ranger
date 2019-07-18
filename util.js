@@ -53,6 +53,20 @@ function loadColumn(col, level) {
   col.setLevel(level);
 }
 
+/**
+ * Returns the column stored at this level.
+ * However, since columns stored in colCache are not currently visible
+ * on the screen, this is a "virtual" column rather than a true blessed.js column
+ */
+function getVirtualColumn(level) {
+  assert(level in colCache);
+  const virtualCol = colCache[level];
+  virtualCol.setItems = items => (virtualCol.items = items);
+  virtualCol.setKeys = keys => (virtualCol.keys = keys);
+
+  return virtualCol;
+}
+
 function isObject(obj) {
   return !!obj && typeof obj === "object";
 }
@@ -148,6 +162,7 @@ module.exports = {
   crashOnError,
   saveColumn,
   loadColumn,
+  getVirtualColumn,
   levels,
   isObject,
   stringify: stringifyWrapper,
