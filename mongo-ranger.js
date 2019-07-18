@@ -501,6 +501,12 @@ function propogateInsert(doc) {
   assert(col.level === util.levels.DOCUMENT_BASE);
   const content = browser.get(col.level);
   setColumnContents(col, content);
+
+  if (browser.docs.length === 1) {
+    // edge case: adding the first document
+    shiftRight();
+    cols[--focused].focus();
+  }
 }
 
 function propogateDelete(doc) {
@@ -513,6 +519,12 @@ function propogateDelete(doc) {
   assert(col.level === util.levels.DOCUMENT_BASE);
   const content = browser.get(col.level);
   setColumnContents(col, content);
+
+  if (browser.docs.length === 0) {
+    // edge case: deleting the final document
+    shiftLeft();
+    cols[focused].focus();
+  }
 }
 
 /**
