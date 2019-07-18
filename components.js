@@ -131,6 +131,8 @@ function logger() {
     }
   });
 
+  logger.logObject = obj => logger.log(util.stringify(obj));
+
   return logger;
 }
 

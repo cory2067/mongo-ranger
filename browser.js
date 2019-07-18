@@ -57,6 +57,11 @@ const browser = {
     return result;
   },
 
+  update: function(doc) {
+    assert(this.cursor.length > 0);
+    this.docs[this.cursor[0]] = doc;
+  },
+
   canAdvance: function() {
     if (!Object.keys(this.docs).length) return false;
 

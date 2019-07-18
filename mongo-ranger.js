@@ -68,12 +68,7 @@ async function main(options) {
   const numCols = cols.length;
 
   // list of databases is only fetched once
-  // local/admin are troublesome, especially on atlas free tier
-  cols[0].setKeys(
-    dbs.databases
-      .map(db => db.name)
-      .filter(name => name != "local" && name != "admin")
-  );
+  cols[0].setKeys(dbs.databases.map(db => db.name));
 
   cols[0].setItems(cols[0].keys);
 
@@ -321,7 +316,40 @@ function launchEditor() {
         return screen.render();
       }
 
-      logger.log("Updating value to: " + util.stringify(valObj));
+      const doc = browser.get(util.levels.DOCUMENT_BASE);
+      const prop = browser.cursor.slice(1).join("."); // property to be updated
+      logger.log(`Updating ${prop} to: ${util.stringify(valObj)}`);
+
+      assert(!!doc._id);
+      try {
+        const res = await db
+          .collection(browser.collection)
+          .findOneAndUpdate(
+            { _id: doc._id },
+            { $set: { [prop]: valObj } },
+            { returnOriginal: false }
+          );
+
+        const updatedDoc = res.value;
+        browser.update(updatedDoc);
+
+        focused--;
+        while (cols[cols.length - 1].level != util.levels.DOCUMENT_BASE) {
+          shiftLeft();
+        }
+        ignoreNextSelection = true; // ignore duplicate reload
+
+        /*
+        const nModified = res.result.nModified;
+        if (nModified === 0) {
+          input.setValue("No documents were modified");
+        }
+        */
+      } catch (e) {
+        input.setValue(e.toString());
+      }
+
+      screen.render();
     })
   );
 
