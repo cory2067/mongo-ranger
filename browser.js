@@ -62,6 +62,11 @@ const browser = {
     this.docs[this.cursor[0]] = doc;
   },
 
+  insert: function(doc) {
+    assert(!!doc._id);
+    this.docs.push(doc);
+  },
+
   canAdvance: function() {
     if (!Object.keys(this.docs).length) return false;
 

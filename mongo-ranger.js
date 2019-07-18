@@ -133,7 +133,7 @@ async function main(options) {
   screen.key([":"], util.crashOnError(screen, promptQuery));
 
   // Handle add/insert request
-  screen.key(["i"], util.crashOnError(screen, promptAdd));
+  screen.key(["i"], util.crashOnError(screen, promptInsert));
 
   // Quit q or Control-C.
   screen.key(["q", "C-c"], () => {
@@ -302,8 +302,39 @@ async function promptQuery() {
   await applyQuery(val);
 }
 
+// called when user pushes i, to insert a new document/field
+async function promptInsert() {
+  const col = cols[focused];
+  if (col.level > util.levels.DOCUMENT_BASE) {
+    return await promptAddField(); // add field rather than insert doc
+  }
+
+  if (col.level < util.levels.DOCUMENT_BASE) {
+    input.setError("Adding new db/collections is unsupported");
+    return screen.render();
+  }
+
+  logger.log("Inserting document into db." + browser.collection);
+  input.setLabel("{blue-fg}{bold}Insert new document{/}");
+  input.clearValue();
+  screen.render();
+
+  const valObj = await input.readObject();
+  if (!valObj) return screen.render();
+
+  try {
+    await db.collection(browser.collection).insertOne(valObj);
+  } catch (e) {
+    input.setError(e.toString());
+    return screen.render();
+  }
+
+  propogateInsert(valObj);
+  screen.render();
+}
+
 // Adder used to add a new field to a document
-async function promptAdd() {
+async function promptAddField() {
   const col = cols[focused];
   if (col.level <= util.levels.DOCUMENT_BASE) {
     return; // can't add a field to this low a level
@@ -328,7 +359,7 @@ async function promptAdd() {
     const res = await dbUpdate(doc, { $push: { [prop]: valObj } });
     if (!res) return;
 
-    propogateChange(res);
+    propogateUpdate(res);
     screen.render();
   } else if (util.isObject(content)) {
     logger.log("Add to " + util.stringify(prop));
@@ -350,7 +381,7 @@ async function promptAdd() {
     const res = await dbUpdate(doc, { $set: { [pathToKey]: valObj } });
     if (!res) return;
 
-    propogateChange(res);
+    propogateUpdate(res);
     screen.render();
   } else {
     input.setError(
@@ -380,12 +411,12 @@ async function promptEdit() {
   const res = await dbUpdate(doc, { $set: { [prop]: valObj } });
   if (!res) return;
 
-  propogateChange(res);
+  propogateUpdate(res);
   screen.render();
 }
 
 // update all columns to reflect an updated document
-function propogateChange(doc) {
+function propogateUpdate(doc) {
   assert(!!doc);
 
   // update data stored in the browser, but we have to update the UI separately
@@ -412,10 +443,23 @@ function propogateChange(doc) {
     setColumnContents(col, content);
   }
 
-  if (focused === cols.length - 1 && cols[focused].keys.length) {
+  if (focused === cols.length - 1 && browser.canAdvance()) {
     shiftRight(); // we may have introduced a new layer during the edit
     cols[--focused].focus();
   }
+}
+
+// update all columns to reflect an inserted document
+function propogateInsert(doc) {
+  assert(!!doc);
+
+  browser.insert(doc);
+
+  // update document layer
+  const col = cols[focused];
+  assert(col.level === util.levels.DOCUMENT_BASE);
+  const content = browser.get(col.level);
+  setColumnContents(col, content);
 }
 
 /**
