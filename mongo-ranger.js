@@ -437,6 +437,7 @@ async function deleteSelected() {
     }
 
     propogateDelete(doc);
+    screen.render();
   } else {
     if (focused === cols.length - 1) {
       input.setError("To delete properties, go back a layer");
