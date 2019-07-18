@@ -138,6 +138,7 @@ function logger() {
 
 /**
  * Returns a textbox across the bottom of the screen
+ * Provides promisified read functions
  */
 function input() {
   const input = blessed.textbox({
@@ -153,6 +154,38 @@ function input() {
   input.setError = msg => {
     input.setLabel("{red-fg}{bold}Error{/}");
     input.setValue(msg);
+  };
+
+  input.read = () => {
+    return new Promise(resolve => {
+      input.readInput((err, val) => {
+        if (err) {
+          return resolve(null);
+        }
+
+        resolve(val);
+      });
+    });
+  };
+
+  input.readObject = async () => {
+    const val = await input.read();
+
+    try {
+      return util.stringToObject(val);
+    } catch (e) {
+      input.setError("Object is malformed, aborting");
+      return null;
+    }
+  };
+
+  input.readString = async () => {
+    const val = await input.read();
+
+    if (val[0] === '"' && val[val.length - 1] === '"') {
+      return val.substr(1, val.length - 2);
+    }
+    return val;
   };
 
   return input;

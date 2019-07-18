@@ -91,17 +91,20 @@ async function main(options) {
     });
 
     // when we change levels, shift the columns accordingly
-    col.key(["l", "right", "enter"], () => {
-      if (focused === numCols - 2 && browser.canAdvance()) {
-        shiftRight();
-      } else if (focused < numCols - 1) {
-        // can change focused column without needing to shift
-        cols[++focused].focus();
-      } else if (cols[focused].level > util.levels.DOCUMENT_BASE) {
-        // can't move forward any more -- start edit mode
-        launchEditor();
-      }
-    });
+    col.key(
+      ["l", "right", "enter"],
+      util.crashOnError(screen, async () => {
+        if (focused === numCols - 2 && browser.canAdvance()) {
+          shiftRight();
+        } else if (focused < numCols - 1) {
+          // can change focused column without needing to shift
+          cols[++focused].focus();
+        } else if (cols[focused].level > util.levels.DOCUMENT_BASE) {
+          // can't move forward any more -- start edit mode
+          await promptEdit();
+        }
+      })
+    );
 
     col.key(["h", "left"], () => {
       if (focused === 1 && cols[0].level > 0) {
@@ -127,29 +130,10 @@ async function main(options) {
   }
 
   // Handle query request
-  screen.key([":"], () => {
-    const col = cols[focused];
-    input.setLabel("{green-fg}{bold}Query{/}");
-    if (col.level !== util.levels.COLLECTION) {
-      input.setError(
-        "Must select a collection in order to query!" +
-          (col.level === util.levels.DOCUMENT_BASE ? " (Go back a level)" : "")
-      );
-      return screen.render();
-    }
-
-    input.clearValue();
-    screen.render();
-
-    input.readInput((err, val) => {
-      if (err) return;
-      ignoreNextSelection = true; // avoid resetting documents once column is refocused
-      util.crashOnError(screen, () => applyQuery(val))();
-    });
-  });
+  screen.key([":"], util.crashOnError(screen, promptQuery));
 
   // Handle add/insert request
-  screen.key(["i"], util.crashOnError(screen, launchAdder));
+  screen.key(["i"], util.crashOnError(screen, promptAdd));
 
   // Quit q or Control-C.
   screen.key(["q", "C-c"], () => {
@@ -196,7 +180,7 @@ async function applySelection(index) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
-    await applyQuery("{}");
+    await applyQuery({});
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
     if (!nextCol) return screen.render();
 
@@ -267,24 +251,16 @@ function shiftLeft() {
 
 /**
  * Apply a user-inputted query to the currently-selected collection
- * @param {String} query MQL query string
+ * @param {Object} query
  */
-async function applyQuery(query) {
+async function applyQuery(queryObj) {
   const col = cols[focused];
   const nextCol = cols[focused + 1];
   assert(col.level == util.levels.COLLECTION);
   assert(!!nextCol);
 
   const collection = col.getKey(col.selected);
-  logger.log(`Querying "${query}" on db.${collection}`);
-
-  let queryObj;
-  try {
-    queryObj = util.stringToObject(query);
-  } catch (e) {
-    input.setError("Query cannot be parsed!");
-    return screen.render();
-  }
+  logger.log(`Querying "${util.stringify(queryObj)}" on db.${collection}`);
 
   let docs;
   try {
@@ -304,8 +280,30 @@ async function applyQuery(query) {
   screen.render();
 }
 
+// used to query a collection (prompts user for input, then calls applyQuery)
+async function promptQuery() {
+  const col = cols[focused];
+  input.setLabel("{green-fg}{bold}Query{/}");
+  if (col.level !== util.levels.COLLECTION) {
+    input.setError(
+      "Must select a collection in order to query!" +
+        (col.level === util.levels.DOCUMENT_BASE ? " (Go back a level)" : "")
+    );
+    return screen.render();
+  }
+
+  input.clearValue();
+  screen.render();
+
+  const val = await input.readObject();
+  if (!val) return screen.render();
+
+  ignoreNextSelection = true; // avoid resetting documents once column is refocused
+  await applyQuery(val);
+}
+
 // Adder used to add a new field to a document
-async function launchAdder() {
+async function promptAdd() {
   const col = cols[focused];
   if (col.level <= util.levels.DOCUMENT_BASE) {
     return; // can't add a field to this low a level
@@ -324,90 +322,36 @@ async function launchAdder() {
     input.clearValue();
     screen.render();
 
-    input.readInput(async (err, val) => {
-      if (err) return;
+    const valObj = await input.readObject();
+    if (!valObj) return screen.render();
 
-      let valObj;
-      try {
-        valObj = util.stringToObject(val);
-      } catch (e) {
-        input.setError("Value is malformed, aborting");
-        return screen.render();
-      }
+    const res = await dbUpdate(doc, { $push: { [prop]: valObj } });
+    if (!res) return;
 
-      let res;
-      try {
-        res = await db
-          .collection(browser.collection)
-          .findOneAndUpdate(
-            { _id: doc._id },
-            { $push: { [prop]: valObj } },
-            { returnOriginal: false }
-          );
-      } catch (e) {
-        input.setError(e.toString());
-        return screen.render;
-      }
-
-      propogateChange(res.value);
-      if (focused === cols.length - 1) {
-        shiftRight(); // we may have introduced a new layer
-        cols[--focused].focus();
-      }
-
-      screen.render();
-    });
+    propogateChange(res);
+    screen.render();
   } else if (util.isObject(content)) {
     logger.log("Add to " + util.stringify(prop));
     input.setLabel("{blue-fg}{bold}Add new field{/}");
     input.clearValue();
     screen.render();
 
-    input.readInput(async (err, key) => {
-      if (err) return;
+    const key = await input.readString();
+    if (!key) return screen.render();
 
-      if (key[0] === '"' && key[key.length - 1] === '"') {
-        key = key.substr(1, key.length - 2);
-      }
+    input.setLabel(`{blue-fg}{bold}Specify value for "${key}"{/}`);
+    input.clearValue();
+    screen.render();
 
-      input.setLabel(`{blue-fg}{bold}Specify value for "${key}"{/}`);
-      input.clearValue();
-      screen.render();
+    const valObj = await input.readObject();
+    if (!valObj) return screen.render();
 
-      input.readInput(async (err, val) => {
-        if (err) return;
-        let valObj;
-        try {
-          valObj = util.stringToObject(val);
-        } catch (e) {
-          input.setError("Value is malformed, aborting");
-          return screen.render();
-        }
+    let pathToKey = `${prop}${prop ? "." : ""}${key}`;
+    const res = await dbUpdate(doc, { $set: { [pathToKey]: valObj } });
+    if (!res) return;
 
-        let res;
-        let pathToKey = `${prop}.${key}`;
-        try {
-          res = await db
-            .collection(browser.collection)
-            .findOneAndUpdate(
-              { _id: doc._id },
-              { $set: { [pathToKey]: valObj } },
-              { returnOriginal: false }
-            );
-        } catch (e) {
-          input.setError(e.toString());
-          return screen.render();
-        }
-
-        propogateChange(res.value);
-        if (focused === cols.length - 1) {
-          shiftRight(); // we may have introduced a new layer
-          cols[--focused].focus();
-        }
-
-        screen.render();
-      });
-    });
+    propogateChange(res);
+    screen.render();
   } else {
     input.setError(
       "Cannot append to field of type " + util.colorize(typeof content)
@@ -417,7 +361,7 @@ async function launchAdder() {
 }
 
 // Editor used to edit existing fields
-function launchEditor() {
+async function promptEdit() {
   input.setLabel("{blue-fg}{bold}Edit{/}");
   const content = browser.get();
 
@@ -425,41 +369,19 @@ function launchEditor() {
   input.setValue(JSON.stringify(content));
   screen.render();
 
-  input.readInput(
-    util.crashOnError(screen, async (err, val) => {
-      if (err) return;
+  const valObj = await input.readObject();
+  if (!valObj) return screen.render();
 
-      let valObj;
-      try {
-        valObj = util.stringToObject(val);
-      } catch (e) {
-        input.setError("Value is malformed, aborting");
-        return screen.render();
-      }
+  const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
+  const prop = browser.cursor.slice(1).join("."); // property to be updated
+  logger.log(`Updating ${prop} to: ${util.stringify(valObj)}`);
 
-      const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
-      const prop = browser.cursor.slice(1).join("."); // property to be updated
-      logger.log(`Updating ${prop} to: ${util.stringify(valObj)}`);
+  assert(!!doc._id);
+  const res = await dbUpdate(doc, { $set: { [prop]: valObj } });
+  if (!res) return;
 
-      assert(!!doc._id);
-      let res;
-      try {
-        res = await db
-          .collection(browser.collection)
-          .findOneAndUpdate(
-            { _id: doc._id },
-            { $set: { [prop]: valObj } },
-            { returnOriginal: false }
-          );
-      } catch (e) {
-        input.setError(e.toString());
-        return screen.render();
-      }
-
-      propogateChange(res.value);
-      screen.render();
-    })
-  );
+  propogateChange(res);
+  screen.render();
 }
 
 // update all columns to reflect an updated document
@@ -489,6 +411,29 @@ function propogateChange(doc) {
     const content = browser.get(level);
     setColumnContents(col, content);
   }
+
+  if (focused === cols.length - 1 && cols[focused].keys.length) {
+    shiftRight(); // we may have introduced a new layer during the edit
+    cols[--focused].focus();
+  }
+}
+
+/**
+ * Wraps the monogdb driver findOneAndUpdate and handles errors
+ *
+ * @param {Object} doc document to be updated
+ * @param {Object} update
+ */
+function dbUpdate(doc, update) {
+  return db
+    .collection(browser.collection)
+    .findOneAndUpdate({ _id: doc._id }, update, { returnOriginal: false })
+    .then(e => e.value)
+    .catch(e => {
+      input.setError(e.toString());
+      screen.render();
+      return null;
+    });
 }
 
 module.exports = main;
