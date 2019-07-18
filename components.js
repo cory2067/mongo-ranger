@@ -150,6 +150,11 @@ function input() {
     }
   });
 
+  input.setError = msg => {
+    input.setLabel("{red-fg}{bold}Error{/}");
+    input.setValue(msg);
+  };
+
   return input;
 }
 

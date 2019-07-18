@@ -97,7 +97,7 @@ async function main(options) {
       } else if (focused < numCols - 1) {
         // can change focused column without needing to shift
         cols[++focused].focus();
-      } else {
+      } else if (cols[focused].level > util.levels.DOCUMENT_BASE) {
         // can't move forward any more -- start edit mode
         launchEditor();
       }
@@ -131,7 +131,7 @@ async function main(options) {
     const col = cols[focused];
     input.setLabel("{green-fg}{bold}Query{/}");
     if (col.level !== util.levels.COLLECTION) {
-      input.setText(
+      input.setError(
         "Must select a collection in order to query!" +
           (col.level === util.levels.DOCUMENT_BASE ? " (Go back a level)" : "")
       );
@@ -278,7 +278,7 @@ async function applyQuery(query) {
   try {
     queryObj = util.stringToQuery(query);
   } catch (e) {
-    input.setValue("Query cannot be parsed!");
+    input.setError("Query cannot be parsed!");
     return screen.render();
   }
 
@@ -290,7 +290,7 @@ async function applyQuery(query) {
       .limit(DOC_LIMIT)
       .toArray();
   } catch (e) {
-    input.setValue(e.toString());
+    input.setError(e.toString());
     return screen.render();
   }
 
@@ -316,7 +316,7 @@ function launchEditor() {
       try {
         valObj = util.stringToQuery(val);
       } catch (e) {
-        input.setValue("Value is malformed, aborting");
+        input.setError("Value is malformed, aborting");
         return screen.render();
       }
 
@@ -335,7 +335,7 @@ function launchEditor() {
             { returnOriginal: false }
           );
       } catch (e) {
-        input.setValue(e.toString());
+        input.setError(e.toString());
         return screen.render();
       }
 
@@ -343,8 +343,6 @@ function launchEditor() {
       screen.render();
     })
   );
-
-  screen.render();
 }
 
 // update all columns to reflect an updated document
