@@ -2,7 +2,7 @@
 
 A MongoDB data browser for the console. Inspired by [ranger](https://github.com/ranger/ranger).
 
-mongo-ranger has vim-like keybindings, which allows you to quickly traverse your database without a mouse.
+`mongo-ranger` has vim-like keybindings, which allows you to quickly traverse your database without a mouse.
 
 ![mongo-ranger](https://user-images.githubusercontent.com/8433005/61555608-c52fb880-aa2d-11e9-996e-9ab3ac552703.png)
 
@@ -17,7 +17,22 @@ mongo-ranger has vim-like keybindings, which allows you to quickly traverse your
 
 ## Installation
 
-**With Node.js (v10 and above):**
+### With Node.js (v10 and above)
+
+To install `mongo-ranger` globally, run:
+
+```
+$ npm install -g mongo-ranger
+$ mongo-ranger MONGO_CONNECTION_STRING
+```
+
+Use npx to try out `mongo-ranger` without installing:
+
+```
+$ npx mongo-ranger MONGO_CONNECTION_STRING
+```
+
+Alternatively, clone and run the repository
 
 ```
 $ git clone https://github.com/cory2067/mongo-ranger.git
@@ -25,9 +40,11 @@ $ npm install
 $ node . MONGO_CONNECTION_STRING
 ```
 
-**Binaries:**
+### Binaries
 
-You can download the latest binary here: https://github.com/cory2067/mongo-ranger/releases
+If you don't have Node.js, you can download the latest binary here: https://github.com/cory2067/mongo-ranger/releases
+
+Example install for Mac OS:
 
 ```
 $ curl https://github.com/cory2067/mongo-ranger/releases/download/v1.0/mongo-ranger-macos -Lso mongo-ranger
