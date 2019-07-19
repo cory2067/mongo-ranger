@@ -323,7 +323,7 @@ async function promptInsert() {
   screen.render();
 
   const valObj = await input.readObject();
-  if (!valObj) return screen.render();
+  if (valObj === null) return screen.render();
 
   try {
     await db.collection(browser.collection).insertOne(valObj);
@@ -357,7 +357,7 @@ async function promptAddField() {
     screen.render();
 
     const valObj = await input.readObject();
-    if (!valObj) return screen.render();
+    if (valObj === null) return screen.render();
 
     const res = await dbUpdate(doc, { $push: { [prop]: valObj } });
     if (!res) return;
@@ -378,7 +378,7 @@ async function promptAddField() {
     screen.render();
 
     const valObj = await input.readObject();
-    if (!valObj) return screen.render();
+    if (valObj === null) return screen.render();
 
     let pathToKey = `${prop}${prop ? "." : ""}${key}`;
     const res = await dbUpdate(doc, { $set: { [pathToKey]: valObj } });
@@ -404,7 +404,7 @@ async function promptEdit() {
   screen.render();
 
   const valObj = await input.readObject();
-  if (!valObj) return screen.render();
+  if (valObj === null) return screen.render();
 
   const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
   const prop = browser.cursor.slice(1).join("."); // property to be updated
@@ -488,6 +488,8 @@ function propogateUpdate(doc) {
   if (focused === cols.length - 1 && browser.canAdvance()) {
     shiftRight(); // we may have introduced a new layer during the edit
     cols[--focused].focus();
+  } else {
+    cols[focused].focus(); // refresh last column in case something was deleted
   }
 }
 
@@ -524,8 +526,10 @@ function propogateDelete(doc) {
   if (browser.docs.length === 0) {
     // edge case: deleting the final document
     shiftLeft();
-    cols[focused].focus();
   }
+
+  // always refocus so last column reflects the delete
+  cols[focused].focus();
 }
 
 /**
