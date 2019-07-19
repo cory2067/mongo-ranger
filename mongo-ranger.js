@@ -68,7 +68,12 @@ async function main(options) {
   const numCols = cols.length;
 
   // list of databases is only fetched once
-  cols[0].setKeys(dbs.databases.map(db => db.name));
+  // admin/local are problematic and cause bugs, esp. for atlas free tier
+  cols[0].setKeys(
+    dbs.databases
+      .map(db => db.name)
+      .filter(name => !["admin", "local"].includes(name))
+  );
 
   cols[0].setItems(cols[0].keys);
 
@@ -447,14 +452,25 @@ async function deleteSelected() {
     const prop = browser.cursor.slice(1).join("."); // property to be deleted
     const doc = browser.get(util.levels.DOCUMENT_BASE + 1);
     logger.log(`Deleting ${prop} from document ${doc._id}`);
-    const res = await dbUpdate(doc, { $unset: { [prop]: "" } });
-    if (!res) return;
 
+    const fromArr = Array.isArray(browser.get(col.level));
+    let res;
+
+    if (fromArr) {
+      // this is so sketchy, why isn't there a simple way to remove by index?
+      const deleteKey = `__toDelete%${doc._id}%${col.selected}`;
+      const arr = prop.substr(0, prop.lastIndexOf("."));
+
+      await dbUpdate(doc, { $set: { [prop]: deleteKey } });
+      res = await dbUpdate(doc, { $pull: { [arr]: deleteKey } });
+    } else {
+      res = await dbUpdate(doc, { $unset: { [prop]: "" } });
+    }
+
+    if (!res) return;
     propogateUpdate(res);
     screen.render();
   }
-
-  const prop = browser.cursor.slice(1).join("."); // property to be updated
 }
 
 // update all columns to reflect an updated document
