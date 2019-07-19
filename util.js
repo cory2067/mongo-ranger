@@ -158,6 +158,7 @@ function stringToObject(string) {
   return eval(`(${string})`);
 }
 
+// Things that aren't objects or arrays are simply considered empty
 function isEmpty(item) {
   if (Array.isArray(item)) {
     return item.length === 0;
@@ -166,6 +167,8 @@ function isEmpty(item) {
   if (isObject(item)) {
     return Object.keys(item).length === 0;
   }
+
+  return true;
 }
 
 module.exports = {

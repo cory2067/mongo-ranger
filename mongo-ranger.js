@@ -504,7 +504,10 @@ function propogateUpdate(doc) {
   if (focused === cols.length - 1 && browser.canAdvance()) {
     shiftRight(); // we may have introduced a new layer during the edit
     cols[--focused].focus();
-  } else if (util.isEmpty(browser.get(cols[focused].level))) {
+  } else if (
+    focused === cols.length - 2 &&
+    util.isEmpty(browser.get(cols[focused].level))
+  ) {
     shiftLeft();
     cols[++focused].focus(); // if you deleted the last item in an object/array
   } else {
