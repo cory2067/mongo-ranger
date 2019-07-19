@@ -76,15 +76,7 @@ const browser = {
     if (!Object.keys(this.docs).length) return false;
 
     const item = this.get();
-    if (Array.isArray(item)) {
-      return item.length > 0;
-    }
-
-    if (util.isObject(item)) {
-      return Object.keys(item).length > 0;
-    }
-
-    return false;
+    return !util.isEmpty(item);
   }
 };
 

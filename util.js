@@ -154,8 +154,18 @@ function colorize(str) {
  * @param {String} string to convert
  */
 function stringToObject(string) {
-  // todo: should avoid using eval
+  // todo: should avoid using eval, vars like colCache are exposed
   return eval(`(${string})`);
+}
+
+function isEmpty(item) {
+  if (Array.isArray(item)) {
+    return item.length === 0;
+  }
+
+  if (isObject(item)) {
+    return Object.keys(item).length === 0;
+  }
 }
 
 module.exports = {
@@ -167,5 +177,6 @@ module.exports = {
   isObject,
   stringify: stringifyWrapper,
   colorize,
-  stringToObject: stringToObject
+  stringToObject,
+  isEmpty
 };
