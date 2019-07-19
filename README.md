@@ -1,5 +1,7 @@
 # mongo-ranger
 
+[![npm version](https://badge.fury.io/js/mongo-ranger.svg)](https://badge.fury.io/js/mongo-ranger)
+
 A MongoDB data browser for the console. Inspired by [ranger](https://github.com/ranger/ranger).
 
 `mongo-ranger` has vim-like keybindings, which allows you to quickly traverse your database without a mouse.
