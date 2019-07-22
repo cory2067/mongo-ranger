@@ -11,6 +11,7 @@ A MongoDB data browser for the console. Inspired by [ranger](https://github.com/
 ## Features
 
 - Multi-column display
+- Syntax highlighting
 - Preview of the selected database/collection/document
 - Traverse arbitrarily deep nested documents
 - Common document operations (update fields, insert/delete document)
@@ -53,6 +54,8 @@ $ curl https://github.com/cory2067/mongo-ranger/releases/download/v1.0/mongo-ran
 $ chmod +x mongo-ranger
 $ mv mongo-ranger /usr/local/bin
 ```
+
+Then, restart terminal to ensure `mongo-ranger` is recognized.
 
 ## Usage
 
