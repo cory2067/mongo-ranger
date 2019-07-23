@@ -38,7 +38,11 @@ async function main(options) {
     input.clearValue();
     input.setLabel("{cyan-fg}{bold}Search{/}");
     screen.render();
-    input.readInput(cb);
+
+    input.readInput((val, err) => {
+      cb(val, err);
+      input.clear();
+    });
   };
 
   // this should be customizable
@@ -188,6 +192,10 @@ async function applySelection(index) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
 
+    if (input.getLabelText() === "Query") {
+      input.clear(); // clear out any stale queries
+    }
+
     await applyQuery({});
   } else if (col.level >= util.levels.DOCUMENT_BASE) {
     if (!nextCol) return screen.render();
@@ -264,7 +272,7 @@ function shiftLeft() {
 async function applyQuery(queryObj) {
   const col = cols[focused];
   const nextCol = cols[focused + 1];
-  assert(col.level == util.levels.COLLECTION);
+  assert(col.level === util.levels.COLLECTION);
   assert(!!nextCol);
 
   const collection = col.getKey(col.selected);
@@ -328,6 +336,7 @@ async function promptInsert() {
   screen.render();
 
   const valObj = await input.readObject();
+  input.clear();
   if (valObj === null) return screen.render();
 
   try {
@@ -362,6 +371,7 @@ async function promptAddField() {
     screen.render();
 
     const valObj = await input.readObject();
+    input.clear();
     if (valObj === null) return screen.render();
 
     const res = await dbUpdate(doc, { $push: { [prop]: valObj } });
@@ -383,6 +393,7 @@ async function promptAddField() {
     screen.render();
 
     const valObj = await input.readObject();
+    input.clear();
     if (valObj === null) return screen.render();
 
     let pathToKey = `${prop}${prop ? "." : ""}${key}`;
@@ -409,6 +420,7 @@ async function promptEdit() {
   screen.render();
 
   const valObj = await input.readObject();
+  input.clear();
   if (valObj === null) return screen.render();
 
   const doc = browser.get(util.levels.DOCUMENT_BASE + 1);

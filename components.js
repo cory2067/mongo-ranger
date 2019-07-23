@@ -151,25 +151,48 @@ function input() {
     }
   });
 
+  input.getLabelText = () => {
+    const label = input.children[0];
+    if (!label) return "";
+    return blessed.stripTags(label.content);
+  };
+
+  // will not clear errors unless force=true
+  input.clear = force => {
+    if (!force && input.getLabelText() === "Error") return;
+    input.removeLabel();
+    input.clearValue();
+  };
+
+  const errorDisplayTime = 2000;
   input.setError = msg => {
     input.setLabel("{red-fg}{bold}Error{/}");
     input.setValue(msg);
+
+    // error auto disappear after errorDisplayTime
+    clearTimeout(input.errorTimeout);
+    input.errorTimeout = setTimeout(() => {
+      if (input.getLabelText() === "Error") {
+        input.clear(true);
+      }
+    }, errorDisplayTime);
   };
 
   input.read = () => {
     return new Promise(resolve => {
       input.readInput((err, val) => {
         if (err) {
-          return resolve(null);
+          return resolve("");
         }
 
-        resolve(val);
+        resolve(val || "");
       });
     });
   };
 
   input.readObject = async () => {
     const val = await input.read();
+    if (!val) return null;
 
     try {
       return util.stringToObject(val);
