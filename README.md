@@ -50,7 +50,7 @@ If you don't have Node.js, you can download the latest binary here: https://gith
 Example install for Mac OS:
 
 ```
-$ curl https://github.com/cory2067/mongo-ranger/releases/download/v1.0/mongo-ranger-macos -Lso mongo-ranger
+$ curl https://github.com/cory2067/mongo-ranger/releases/download/v1.1.0/mongo-ranger-macos -Lso mongo-ranger
 $ chmod +x mongo-ranger
 $ mv mongo-ranger /usr/local/bin
 ```
