@@ -80,6 +80,7 @@ Controls
   - Move forward on an individual field to edit
   - Push i to insert a new document or field
   - Push d to delete a document or field
+  - Push r to reload the current collection
 
 Options
 

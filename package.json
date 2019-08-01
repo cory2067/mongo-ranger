@@ -1,15 +1,18 @@
 {
   "name": "mongo-ranger",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A MongoDB data browser for the console",
   "main": "index.js",
   "bin": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "sh build.sh",
     "start": "node index.js"
   },
   "author": "Cory Lynch",
   "license": "MIT",
+  "repository": "github:cory2067/mongo-ranger",
+  "homepage": "https://github.com/cory2067/mongo-ranger",
   "dependencies": {
     "blessed": "^0.1.81",
     "command-line-args": "^5.1.1",

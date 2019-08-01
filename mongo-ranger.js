@@ -147,6 +147,9 @@ async function main(options) {
   // Handle delete request
   screen.key(["d"], util.crashOnError(screen, deleteSelected));
 
+  // Handle refresh request
+  screen.key(["r", "f5"], util.crashOnError(screen, reloadCollection));
+
   // Quit q or Control-C.
   screen.key(["q", "C-c"], () => {
     client.close();
@@ -191,6 +194,12 @@ async function applySelection(index) {
   } else if (col.level === util.levels.COLLECTION) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
+    const collection = col.getKey(col.selected);
+
+    if (collection === browser.collection) {
+      // no need to requery, this collection already loaded
+      return;
+    }
 
     if (input.getLabelText() === "Query") {
       input.clear(); // clear out any stale queries
@@ -275,6 +284,7 @@ async function applyQuery(queryObj) {
   assert(col.level === util.levels.COLLECTION);
   assert(!!nextCol);
 
+  browser.query = queryObj;
   const collection = col.getKey(col.selected);
   logger.log(`Querying "${util.stringify(queryObj)}" on db.${collection}`);
 
@@ -483,6 +493,27 @@ async function deleteSelected() {
     propogateUpdate(res);
     screen.render();
   }
+}
+
+async function reloadCollection() {
+  // reload the docs in the browser
+
+  if (cols[focused].level === util.levels.DATABASE) {
+    cols[focused].focus(); // simply refocusing should trigger a refresh on this level
+    return;
+  }
+
+  // (until a more elegant solution is found)
+  // kick the user back out to the collection level
+  while (focused > 1) {
+    cols[--focused].focus();
+  }
+
+  while (cols[focused].level > util.levels.COLLECTION) {
+    shiftLeft();
+  }
+
+  await applyQuery(browser.query || {});
 }
 
 // update all columns to reflect an updated document

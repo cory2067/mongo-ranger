@@ -9,6 +9,7 @@ const assert = require("assert");
  */
 const browser = {
   collection: null,
+  query: "",
   docs: [],
   cursor: [],
 

@@ -51,7 +51,8 @@ const usage = [
       "- Use : to type a MongoDB query for the selected collection",
       "- Move forward on an individual field to edit",
       "- Push i to insert a new document or field",
-      "- Push d to delete a document or field"
+      "- Push d to delete a document or field",
+      "- Push r to reload the current collection"
     ]
   },
   {
