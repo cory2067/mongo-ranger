@@ -9,7 +9,6 @@ const browser = require("./browser");
 let focused = 0;
 let client, db; // mongo connection
 let screen, logger, input, cols; // all Blessed components
-let ignoreNextSelection = false;
 
 const DOC_LIMIT = 64;
 
@@ -168,11 +167,6 @@ async function main(options) {
  * @param {Number} index
  */
 async function applySelection(index) {
-  if (ignoreNextSelection) {
-    ignoreNextSelection = false;
-    return;
-  }
-
   const col = cols[index];
   const nextCol = cols[index + 1]; // undefined for last column
   const numCols = cols.length;
@@ -324,7 +318,6 @@ async function promptQuery() {
   const val = await input.readObject();
   if (!val) return screen.render();
 
-  ignoreNextSelection = true; // avoid resetting documents once column is refocused
   await applyQuery(val);
 }
 
