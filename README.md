@@ -89,3 +89,12 @@ Options
   -h, --help          show this help page
   --debug             show debug logs
 ```
+
+## Common Issues
+
+`mongo-ranger` sometimes hangs forever if write concern is specified in the URI. For example,
+```
+mongodb+srv://admin:[password]@[cluster].mongodb.net/test?retryWrites=true&w=majority
+```
+
+This may hang, but should work if you remove `&w=majority`
