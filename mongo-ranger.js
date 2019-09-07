@@ -18,6 +18,7 @@ async function main(options) {
 
   client = new MongoClient(uri, {
     useNewUrlParser: true,
+    useUnifiedTopology: true,
     appname: "mongo-ranger"
   });
 
