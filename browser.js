@@ -19,6 +19,13 @@ const browser = {
     this.cursor = [];
   },
 
+  clear: function() {
+    this.collection = null;
+    this.query = "";
+    this.docs = [];
+    this.cursor = [];
+  },
+
   traverse: function(level, selection) {
     // depth 0 -> topmost layer of document
     const depth = level - util.levels.DOCUMENT_BASE;

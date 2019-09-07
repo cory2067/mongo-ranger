@@ -185,6 +185,7 @@ async function applySelection(index) {
     const collections = await db.listCollections().toArray();
     nextCol.setKeys(collections.map(coll => coll.name));
     nextCol.setItems(nextCol.keys); // no formatting
+    browser.clear();
   } else if (col.level === util.levels.COLLECTION) {
     // A selection on the COLLECTION level loads the DOCUMENT_BASE level
     assert(index <= 1);
