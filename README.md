@@ -26,13 +26,13 @@ To install `mongo-ranger` globally, run:
 
 ```
 $ npm install -g mongo-ranger
-$ mongo-ranger MONGO_CONNECTION_STRING
+$ mongo-ranger "MONGO_CONNECTION_STRING"
 ```
 
 Use npx to try out `mongo-ranger` without installing:
 
 ```
-$ npx mongo-ranger MONGO_CONNECTION_STRING
+$ npx mongo-ranger "MONGO_CONNECTION_STRING"
 ```
 
 Alternatively, clone and run the repository
@@ -40,7 +40,7 @@ Alternatively, clone and run the repository
 ```
 $ git clone https://github.com/cory2067/mongo-ranger.git
 $ npm install
-$ node . MONGO_CONNECTION_STRING
+$ node . "MONGO_CONNECTION_STRING"
 ```
 
 ### Binaries
@@ -92,9 +92,11 @@ Options
 
 ## Common Issues
 
-`mongo-ranger` sometimes hangs forever if write concern is specified in the URI. For example,
-```
-mongodb+srv://admin:[password]@[cluster].mongodb.net/test?retryWrites=true&w=majority
-```
+Make sure you put quotes around your mongo connection string! If you forget, `mongo-ranger` may cryptically fail.
+```bash
+# This fails because of the & character!
+mongo-ranger mongodb+srv://admin:pw@test.mongodb.net/test?retryWrites=true&w=majority
 
-This may hang, but should work if you remove `&w=majority`
+# This is good
+mongo-ranger "mongodb+srv://admin:pw@test.mongodb.net/test?retryWrites=true&w=majority"
+```
