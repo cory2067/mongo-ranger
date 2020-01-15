@@ -43,20 +43,6 @@ $ npm install
 $ node . "MONGO_CONNECTION_STRING"
 ```
 
-### Binaries
-
-If you don't have Node.js, you can download the latest binary here: https://github.com/cory2067/mongo-ranger/releases
-
-Example install for Mac OS:
-
-```
-$ curl https://github.com/cory2067/mongo-ranger/releases/download/v1.1.0/mongo-ranger-macos -Lso mongo-ranger
-$ chmod +x mongo-ranger
-$ mv mongo-ranger /usr/local/bin
-```
-
-Then, restart terminal to ensure `mongo-ranger` is recognized.
-
 ## Usage
 
 ```
